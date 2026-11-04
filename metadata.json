@@ -1,0 +1,6 @@
+{
+  "name": "J Portfolio - THIS IS ME",
+  "description": "Replica of the 'THIS IS ME' personal portfolio website featuring torn paper aesthetic, 3D tilted photo frame, slide-out bio drawer, and interactive work showcases.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

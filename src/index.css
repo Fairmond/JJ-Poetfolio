@@ -1,0 +1,81 @@
+@import "tailwindcss";
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes arrowDoubleBounce {
+  0% {
+    transform: translateX(0);
+  }
+  12% {
+    transform: translateX(-14px);
+  }
+  24% {
+    transform: translateX(0);
+  }
+  36% {
+    transform: translateX(-14px);
+  }
+  48% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.animate-arrow-double-bounce {
+  animation: arrowDoubleBounce 2.2s ease-in-out infinite;
+}
+
+/* Custom Confetti Popper Cursor when hovering over triggerable background areas */
+body.confetti-cursor-active,
+body.confetti-cursor-active #root,
+body.confetti-cursor-active main,
+body.confetti-cursor-active #pc-stage-root,
+body.confetti-cursor-active svg {
+  cursor: url('/assets/aistudio/confetti_cursor_32.png') 8 8, auto;
+  cursor: -webkit-image-set(
+    url('/assets/aistudio/confetti_cursor_32.png') 1x,
+    url('/assets/aistudio/confetti_cursor_64.png') 2x
+  ) 8 8, url('/assets/aistudio/confetti_cursor_32.png') 8 8, auto;
+  cursor: image-set(
+    url('/assets/aistudio/confetti_cursor_32.png') 1x,
+    url('/assets/aistudio/confetti_cursor_64.png') 2x
+  ) 8 8, url('/assets/aistudio/confetti_cursor_32.png') 8 8, auto;
+}
+
+/* Ensure interactive elements keep standard interactive cursors */
+body.confetti-cursor-active button,
+body.confetti-cursor-active a,
+body.confetti-cursor-active input,
+body.confetti-cursor-active select,
+body.confetti-cursor-active textarea,
+body.confetti-cursor-active [role="button"],
+body.confetti-cursor-active [role="link"],
+body.confetti-cursor-active .cursor-pointer,
+body.confetti-cursor-active .cursor-grab,
+body.confetti-cursor-active .cursor-grabbing {
+  cursor: pointer !important;
+}
+
+body.confetti-cursor-active .cursor-default {
+  cursor: default !important;
+}
+
