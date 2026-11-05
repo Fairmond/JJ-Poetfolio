@@ -64,7 +64,7 @@ export const MobileStage: React.FC<MobileStageProps> = ({
   return (
     <div
       id="mobile-stage-root"
-      className="w-full min-h-[100dvh] bg-[#eae8e4] text-[#292727] flex flex-col items-center justify-start relative overflow-hidden select-none no-scrollbar touch-pan-y"
+      className="fixed inset-0 w-full h-full h-[100dvh] bg-[#eae8e4] text-[#292727] flex flex-col items-center justify-between overflow-hidden select-none no-scrollbar box-border"
       style={{
         paddingTop: 'env(safe-area-inset-top, 0px)',
         paddingBottom: 'env(safe-area-inset-bottom, 0px)',
@@ -72,13 +72,15 @@ export const MobileStage: React.FC<MobileStageProps> = ({
     >
       <div
         ref={stageRef}
-        className="w-full max-w-[430px] relative flex flex-col items-center min-h-[100dvh] justify-between overflow-visible"
+        className="w-full max-w-[430px] h-full flex-1 min-h-0 relative flex flex-col items-center justify-between overflow-hidden"
       >
         {/* Top Fixed Header */}
         <MobileHeader onLogoClick={() => setIsDrawerOpen(false)} />
 
         {/* Dynamic Responsive Scaled Photo Canvas */}
-        <MobileHeroFrame renderPos={renderPos} />
+        <div className="flex-1 w-full min-h-0 flex items-center justify-center relative overflow-visible">
+          <MobileHeroFrame renderPos={renderPos} />
+        </div>
 
         {/* Bottom Drawer Sheet */}
         <MobileDrawerSheet

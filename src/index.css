@@ -1,5 +1,99 @@
 @import "tailwindcss";
 
+/* User Uploaded Fonts */
+@font-face {
+  font-family: 'CopperplateGothic-Bold';
+  src: url('/fonts/COPRGTB.TTF') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Copperplate Gothic';
+  src: url('/fonts/COPRGTB.TTF') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Copperplate';
+  src: url('/fonts/COPRGTB.TTF') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Copperplate Gothic Bold';
+  src: url('/fonts/COPRGTB.TTF') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'CopperplateGothic-Light';
+  src: url('/fonts/COPRGTL.TTF') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Copperplate Gothic Light';
+  src: url('/fonts/COPRGTL.TTF') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'FZFYSJW--GB1-0';
+  src: url('/fonts/FZFYSJW.TTF') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'FZFengYaSongS-GB';
+  src: url('/fonts/FZFYSJW.TTF') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: '方正风雅宋简体';
+  src: url('/fonts/FZFYSJW.TTF') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: '方正风雅宋简';
+  src: url('/fonts/FZFYSJW.TTF') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+}
+
 @layer utilities {
   .no-scrollbar::-webkit-scrollbar {
     display: none;

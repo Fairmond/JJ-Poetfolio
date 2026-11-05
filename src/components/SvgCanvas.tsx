@@ -142,7 +142,7 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
             <g
               mask="url(#textFadeMask)"
               className="transition-all duration-500 ease-in-out"
-              transform={`translate(${stageMetrics.titleX}, 482) scale(${stageMetrics.titleScale}) translate(-196, -482)`}
+              transform={`translate(${stageMetrics.titleX}, 482) scale(${stageMetrics.titleScale * 0.85}) translate(-196, -482)`}
               opacity={isDrawerOpen ? 0 : 1}
               style={{ pointerEvents: isDrawerOpen ? 'none' : 'auto' }}
             >

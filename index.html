@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="w-full h-full overflow-hidden overscroll-none">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
@@ -7,9 +7,11 @@
     <meta name="description" content="Replica of the 'THIS IS ME' personal portfolio website featuring torn paper aesthetic, 3D tilted photo frame, slide-out bio drawer, and interactive work showcases." />
     <meta property="og:title" content="J Portfolio - THIS IS ME" />
     <meta property="og:description" content="Replica of the 'THIS IS ME' personal portfolio website featuring torn paper aesthetic, 3D tilted photo frame, slide-out bio drawer, and interactive work showcases." />
+    <link rel="preload" href="/fonts/COPRGTB.TTF" as="font" type="font/ttf" crossorigin="anonymous" />
+    <link rel="preload" href="/fonts/FZFYSJW.TTF" as="font" type="font/ttf" crossorigin="anonymous" />
   </head>
-  <body class="bg-[#eae8e4] text-[#292727] antialiased">
-    <div id="root"></div>
+  <body class="bg-[#eae8e4] text-[#292727] antialiased w-full h-full h-[100dvh] fixed inset-0 overflow-hidden overscroll-none select-none">
+    <div id="root" class="w-full h-full overflow-hidden"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

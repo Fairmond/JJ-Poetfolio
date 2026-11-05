@@ -7,13 +7,13 @@ interface MobileHeroFrameProps {
 
 export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) => {
   return (
-    <div className="w-full relative px-1 flex flex-col items-center my-auto">
+    <div className="w-full h-full flex flex-col items-center justify-center relative px-1">
       <svg
         xmlns="http://www.w3.org/2000/svg"
         xmlnsXlink="http://www.w3.org/1999/xlink"
         viewBox="0 0 393 640"
         preserveAspectRatio="xMidYMid meet"
-        className="w-full h-auto max-h-[min(64vh,580px)] object-contain drop-shadow-sm select-none"
+        className="w-full h-full max-h-full object-contain drop-shadow-sm select-none"
         style={{ overflow: 'visible' }}
       >
         <defs>

@@ -21,7 +21,7 @@ export default function App() {
   const isMobile = useIsMobile();
 
   return (
-    <div className="min-h-screen min-h-[100dvh] w-full bg-[#eae8e4] text-neutral-900 font-sans relative overflow-x-hidden select-none flex flex-col justify-center items-center">
+    <div className="fixed inset-0 w-full h-full h-[100dvh] bg-[#eae8e4] text-neutral-900 font-sans overflow-hidden select-none flex flex-col justify-center items-center overscroll-none">
       {/* Global Skeleton / Preloader Overlay */}
       <Preloader isLoading={isLoading} progress={progress} />
 
