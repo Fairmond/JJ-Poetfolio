@@ -21,7 +21,7 @@ export const MobileStage: React.FC<MobileStageProps> = ({
   const [stageHeight, setStageHeight] = useState(MOBILE_STAGE.DEFAULT_HEIGHT);
 
   // Parallax physics with gyroscope + touchmove fallback
-  const { renderPos } = useParallax({ damping: 0.08, enableGyroscope: true });
+  const { renderPos } = useParallax({ damping: 0.13, enableGyroscope: true });
 
   // Responsive stage sizing
   useEffect(() => {

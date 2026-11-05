@@ -28,7 +28,7 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
   const stageMetrics = useStageMetrics(containerRef);
 
   // Hook 2: Parallax physics loop with inertia & lerp damping
-  const { renderPos, handleMouseMove, handleMouseLeave } = useParallax({ damping: 0.07 });
+  const { renderPos, handleMouseMove, handleMouseLeave } = useParallax({ damping: 0.11 });
 
   // -------------------------------------------------------------
   // Dynamic Responsive Drawer & Frame Coordinates
@@ -100,7 +100,7 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
             {/* Torn Paper Strip Rotated Texture with Mouse Parallax */}
             <g
               style={{
-                transform: `translate3d(${renderPos.x * 20}px, ${renderPos.y * 20}px, 0)`,
+                transform: `translate3d(${renderPos.x * 36}px, ${renderPos.y * 36}px, 0)`,
               }}
             >
               <g

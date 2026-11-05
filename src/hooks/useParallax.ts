@@ -23,7 +23,7 @@ export interface UseParallaxResult {
  * and cross-platform support (mouse tracking and mobile deviceorientation).
  */
 export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult {
-  const { damping = 0.07, enableGyroscope = false } = options;
+  const { damping = 0.11, enableGyroscope = false } = options;
   const [renderPos, setRenderPos] = useState<ParallaxCoords>({ x: 0, y: 0 });
   const targetPos = useRef<ParallaxCoords>({ x: 0, y: 0 });
   const currentPos = useRef<ParallaxCoords>({ x: 0, y: 0 });
@@ -75,12 +75,13 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
       if (e.gamma === null || e.beta === null) return;
       hasGyroscope = true;
 
-      const gamma = Math.min(Math.max(e.gamma, -45), 45);
-      const beta = Math.min(Math.max(e.beta - 45, -45), 45);
+      // Higher sensitivity: 20 deg tilt reaches full deflection
+      const gamma = Math.min(Math.max(e.gamma, -40), 40);
+      const beta = Math.min(Math.max(e.beta - 45, -40), 40);
 
       targetPos.current = {
-        x: gamma / 35,
-        y: beta / 35,
+        x: gamma / 20,
+        y: beta / 20,
       };
     };
 
@@ -114,8 +115,8 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
       const width = window.innerWidth;
       const height = window.innerHeight;
       targetPos.current = {
-        x: (touch.clientX / width - 0.5) * 2,
-        y: (touch.clientY / height - 0.5) * 2,
+        x: ((touch.clientX / width - 0.5) * 2.2),
+        y: ((touch.clientY / height - 0.5) * 2.2),
       };
     };
 

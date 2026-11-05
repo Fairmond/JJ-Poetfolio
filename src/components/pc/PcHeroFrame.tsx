@@ -25,7 +25,7 @@ export const PcHeroFrame: React.FC<PcHeroFrameProps> = ({
       {/* Layer 1: Frame Stack (Lower Parallax Layer: Same Direction as Lower Layer / 与下层撕纸纹理同向) */}
       <g
         style={{
-          transform: `translate3d(${renderPos.x * 20}px, ${renderPos.y * 20}px, 0)`,
+          transform: `translate3d(${renderPos.x * 36}px, ${renderPos.y * 36}px, 0)`,
         }}
       >
         <g
@@ -38,7 +38,7 @@ export const PcHeroFrame: React.FC<PcHeroFrameProps> = ({
           <g clipPath="url(#c)">
             <g
               style={{
-                transform: `translate3d(${-renderPos.x * 20}px, ${-renderPos.y * 20}px, 0)`,
+                transform: `translate3d(${-renderPos.x * 36}px, ${-renderPos.y * 36}px, 0)`,
               }}
             >
               <g transform="translate(1134 254)">
@@ -69,7 +69,7 @@ export const PcHeroFrame: React.FC<PcHeroFrameProps> = ({
           {/* Tape Overlay (Rounded Rectangle) - Keeps fixed relative to canvas via counter-parallax */}
           <g
             style={{
-              transform: `translate3d(${-renderPos.x * 20}px, ${-renderPos.y * 20}px, 0)`,
+              transform: `translate3d(${-renderPos.x * 36}px, ${-renderPos.y * 36}px, 0)`,
             }}
           >
             <rect
@@ -90,7 +90,7 @@ export const PcHeroFrame: React.FC<PcHeroFrameProps> = ({
           <g clipPath="url(#d)">
             <g
               style={{
-                transform: `translate3d(${-renderPos.x * 20}px, ${-renderPos.y * 20}px, 0)`,
+                transform: `translate3d(${-renderPos.x * 36}px, ${-renderPos.y * 36}px, 0)`,
               }}
             >
               <image
@@ -108,7 +108,7 @@ export const PcHeroFrame: React.FC<PcHeroFrameProps> = ({
       {/* Layer 2: Circular Stamp / Holographic Badge (Upper Layer: Opposite Parallax Direction / 上层反向视差) */}
       <g
         style={{
-          transform: `translate3d(${-renderPos.x * 10}px, ${-renderPos.y * 10}px, 0)`,
+          transform: `translate3d(${-renderPos.x * 18}px, ${-renderPos.y * 18}px, 0)`,
         }}
       >
         <g
@@ -144,7 +144,7 @@ export const PcHeroFrame: React.FC<PcHeroFrameProps> = ({
               style={{
                 mixBlendMode: 'color-dodge',
                 opacity: 0.275,
-                transform: `translate(${renderPos.x * 55}px, ${renderPos.y * 55}px) rotate(${renderPos.x * 40}deg)`,
+                transform: `translate(${renderPos.x * 85}px, ${renderPos.y * 85}px) rotate(${renderPos.x * 55}deg)`,
                 transformOrigin: '1770.452px 773.423px',
               }}
             />
@@ -159,7 +159,7 @@ export const PcHeroFrame: React.FC<PcHeroFrameProps> = ({
               style={{
                 mixBlendMode: 'overlay',
                 opacity: 0.25,
-                transform: `translate(${-renderPos.x * 70}px, ${-renderPos.y * 70}px) rotate(${45 + renderPos.y * 30}deg)`,
+                transform: `translate(${-renderPos.x * 100}px, ${-renderPos.y * 100}px) rotate(${45 + renderPos.y * 40}deg)`,
                 transformOrigin: '1770.452px 773.423px',
               }}
             />

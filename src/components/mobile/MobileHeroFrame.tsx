@@ -60,7 +60,7 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
         </defs>
 
         {/* Rotated Torn Paper Strip Layer */}
-        <g transform={`translate(${renderPos.x * 6} ${-145 + renderPos.y * 6})`}>
+        <g transform={`translate(${renderPos.x * 14} ${-145 + renderPos.y * 14})`}>
           <g transform="rotate(-40.0 363.905 379.456)">
             <image
               href="/mobile_bg_torn.png"
@@ -123,7 +123,7 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
         {/* 3D HERO FRAME PACKAGE */}
         <g transform="translate(196.5 365) scale(1.32) translate(-196.5 -365)">
           <g
-            transform={`translate(${-1051 + renderPos.x * 10} ${-21.038 + renderPos.y * 10})`}
+            transform={`translate(${-1051 + renderPos.x * 22} ${-21.038 + renderPos.y * 22})`}
             className="group select-none pointer-events-auto"
           >
             {/* Layer 1: Bottom Portrait Studio Background */}
@@ -136,7 +136,7 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
                 xlinkHref="/mobile_portrait_bottom.png"
                 width={306}
                 height={408}
-                transform={`translate(${-12.563 - renderPos.x * 6} ${-57.956 - renderPos.y * 6})`}
+                transform={`translate(${-12.563 - renderPos.x * 14} ${-57.956 - renderPos.y * 14})`}
               />
             </g>
 
@@ -174,14 +174,14 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
                 xlinkHref="/mobile_portrait_top.png"
                 width={287.05}
                 height={393.62}
-                transform={`translate(${7.925 - renderPos.x * 8} ${12.392 - renderPos.y * 8})`}
+                transform={`translate(${7.925 - renderPos.x * 18} ${12.392 - renderPos.y * 18})`}
               />
             </g>
           </g>
 
           {/* Circular Holographic Badge / Stamp Avatar */}
           <g
-            transform={`translate(${-1418.955 - renderPos.x * 12} ${-228.976 - renderPos.y * 12})`}
+            transform={`translate(${-1418.955 - renderPos.x * 26} ${-228.976 - renderPos.y * 26})`}
           >
             <circle
               cx={48.491}
