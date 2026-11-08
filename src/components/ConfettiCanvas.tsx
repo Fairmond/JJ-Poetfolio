@@ -50,7 +50,7 @@ interface FlakeParticle extends BaseParticle {
   isCircle: boolean;
 }
 
-// 2. Short-to-medium flat paper strip (长方形小彩条)
+// 2. Short-to-medium flat paper strip (长方形小纸条)
 interface StripParticle extends BaseParticle {
   kind: 'strip';
   width: number;
@@ -85,26 +85,41 @@ interface WavyStreamerParticle extends BaseParticle {
 
 type ConfettiParticle = FlakeParticle | StripParticle | SpiralRibbonParticle | WavyStreamerParticle;
 
+// Reusable coordinate buffers to eliminate GC allocations inside 60fps render loop
+const MAX_SEGMENTS = 24;
+const bufLeftX = new Float32Array(MAX_SEGMENTS + 1);
+const bufLeftY = new Float32Array(MAX_SEGMENTS + 1);
+const bufRightX = new Float32Array(MAX_SEGMENTS + 1);
+const bufRightY = new Float32Array(MAX_SEGMENTS + 1);
+
 export const ConfettiCanvas: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const particlesRef = useRef<ConfettiParticle[]>([]);
   const animFrameIdRef = useRef<number | null>(null);
   const nextIdRef = useRef(0);
+  const lastTimeRef = useRef(0);
+
+  // High-performance element interaction detector (zero layout thrashing, native C++ .closest)
+  const isInteractiveElement = useCallback((target: EventTarget | null): boolean => {
+    if (!target || !(target instanceof Element)) return false;
+    return !!target.closest(
+      'button, a, input, textarea, select, label, video, audio, [role="button"], [role="link"], [role="tab"], [role="dialog"], .cursor-pointer, .cursor-grab, .cursor-grabbing, #mobile-bottom-sheet, #slide-drawer, #project-modal, #contact-modal, .z-50'
+    );
+  }, []);
 
   // Spawn confetti burst at (clientX, clientY)
-  const spawnBurst = useCallback((clientX: number, clientY: number, baseCount = 54) => {
+  const spawnBurst = useCallback((clientX: number, clientY: number, baseCount = 52) => {
     const isMobile = window.innerWidth < 768;
-    const count = isMobile ? Math.min(baseCount, 40) : baseCount;
+    const count = isMobile ? Math.min(baseCount, 36) : baseCount;
     const particles = particlesRef.current;
 
     for (let i = 0; i < count; i++) {
       const id = ++nextIdRef.current;
-      
-      // 3D Upward Conical Fountain Ejection Physics (三维立体锥形向上喷发)
-      // Spread angle from vertical axis: ~0 to 38 degrees
-      const coneSpread = Math.pow(Math.random(), 0.75) * (Math.PI * 0.22); // concentrated upwards cone
-      const azimuth = Math.random() * Math.PI * 2; // 360-degree radial symmetry around Y-axis
-      const launchSpeed = (10 + Math.random() * 10) * 0.72; // Gentler initial burst impulse (7.2 ~ 14.4)
+
+      // 3D Upward Conical Fountain Ejection Physics (三维立体轻快喷发)
+      const coneSpread = Math.pow(Math.random(), 0.75) * (Math.PI * 0.24); // concentrated upwards cone
+      const azimuth = Math.random() * Math.PI * 2; // 360-degree radial symmetry
+      const launchSpeed = 14 + Math.random() * 12; // Crisp, punchy launch velocity (14 ~ 26 px/frame)
 
       const horizSpeed = Math.sin(coneSpread) * launchSpeed;
       const vx = Math.cos(azimuth) * horizSpeed;
@@ -112,9 +127,8 @@ export const ConfettiCanvas: React.FC = () => {
       const vy = -Math.cos(coneSpread) * launchSpeed; // Upward impulse
 
       const color = CONFETTI_PALETTE[Math.floor(Math.random() * CONFETTI_PALETTE.length)];
-      const maxLife = 260 + Math.random() * 130; // Longer life (~4.3s - 6.5s) to accompany slower descent
+      const maxLife = 140 + Math.random() * 70; // 2.3s ~ 3.5s total life: crisp, active, dynamic
 
-      // Particle mix: ~30% Spiral Streamers (打卷长彩带), ~25% Wavy Streamers (柔顺长彩带), ~25% Short Strips (长方纸条), ~20% Flakes (小碎纸)
       const randType = Math.random();
 
       const base: BaseParticle = {
@@ -122,57 +136,57 @@ export const ConfettiCanvas: React.FC = () => {
         kind: 'flake',
         x: clientX,
         y: clientY,
-        z: (Math.random() - 0.5) * 20,
+        z: (Math.random() - 0.5) * 30,
         vx,
         vy,
         vz,
         rx: Math.random() * Math.PI * 2,
         ry: Math.random() * Math.PI * 2,
         rz: Math.random() * Math.PI * 2,
-        vrx: (Math.random() - 0.5) * 0.14,
-        vry: (Math.random() - 0.5) * 0.16,
-        vrz: (Math.random() - 0.5) * 0.10,
+        vrx: (Math.random() - 0.5) * 0.22,
+        vry: (Math.random() - 0.5) * 0.24,
+        vrz: (Math.random() - 0.5) * 0.16,
         color,
         opacity: 1,
         life: 0,
         maxLife,
-        drag: 0.965,
+        drag: 0.972,
         swayPhase: Math.random() * Math.PI * 2,
-        swaySpeed: 0.024 + Math.random() * 0.028, // Slower, graceful aerodynamic flutter
-        swayRadius: 1.8 + Math.random() * 2.2, // Wider, gentle wandering drift
+        swaySpeed: 0.05 + Math.random() * 0.04, // Lively flutter
+        swayRadius: 1.4 + Math.random() * 1.6,
       };
 
       if (randType < 0.3) {
-        // Spiral curly paper streamer (普通打卷纸彩带)
-        const segmentCount = 12 + Math.floor(Math.random() * 6);
+        // Spiral curly paper streamer (打卷长彩带)
+        const segmentCount = 9 + Math.floor(Math.random() * 4);
         particles.push({
           ...base,
           kind: 'spiral_ribbon',
           segmentCount,
-          segmentLength: 5.5 + Math.random() * 3.5, // 65px - 110px length
+          segmentLength: 5.5 + Math.random() * 3.5,
           ribbonWidth: 4.5 + Math.random() * 2.5,
-          spiralRadius: 7 + Math.random() * 10,
-          spiralFrequency: 0.38 + Math.random() * 0.25,
+          spiralRadius: 6 + Math.random() * 8,
+          spiralFrequency: 0.42 + Math.random() * 0.25,
           twistAngle: Math.random() * Math.PI * 2,
-          vTwist: (Math.random() > 0.5 ? 1 : -1) * (0.03 + Math.random() * 0.04),
+          vTwist: (Math.random() > 0.5 ? 1 : -1) * (0.05 + Math.random() * 0.05),
           curlPhase: Math.random() * Math.PI * 2,
-          curlSpeed: 0.025 + Math.random() * 0.025,
-          drag: 0.960,
+          curlSpeed: 0.04 + Math.random() * 0.03,
+          drag: 0.968,
         });
       } else if (randType < 0.55) {
         // Wavy smooth streamer (微弯波浪纸彩带)
-        const segmentCount = 10 + Math.floor(Math.random() * 5);
+        const segmentCount = 8 + Math.floor(Math.random() * 4);
         particles.push({
           ...base,
           kind: 'wavy_streamer',
           segmentCount,
-          segmentLength: 5 + Math.random() * 4,
-          ribbonWidth: 4 + Math.random() * 2.5,
-          waveAmplitude: 6 + Math.random() * 7,
-          waveFrequency: 0.35 + Math.random() * 0.25,
+          segmentLength: 5 + Math.random() * 3.5,
+          ribbonWidth: 4 + Math.random() * 2,
+          waveAmplitude: 5 + Math.random() * 6,
+          waveFrequency: 0.38 + Math.random() * 0.22,
           wavePhase: Math.random() * Math.PI * 2,
-          waveSpeed: 0.03 + Math.random() * 0.025,
-          drag: 0.962,
+          waveSpeed: 0.05 + Math.random() * 0.03,
+          drag: 0.970,
         });
       } else if (randType < 0.8) {
         // Short flat rectangular paper strip (普通小纸条)
@@ -180,8 +194,8 @@ export const ConfettiCanvas: React.FC = () => {
           ...base,
           kind: 'strip',
           width: 5 + Math.random() * 3,
-          height: 16 + Math.random() * 14,
-          drag: 0.968,
+          height: 14 + Math.random() * 12,
+          drag: 0.974,
         });
       } else {
         // Square or circular paper flake (小纸屑)
@@ -192,69 +206,76 @@ export const ConfettiCanvas: React.FC = () => {
           width: 7 + Math.random() * 5,
           height: 7 + Math.random() * 5,
           isCircle,
-          drag: 0.972,
+          drag: 0.978,
         });
       }
     }
 
     if (!animFrameIdRef.current) {
-      loop();
+      lastTimeRef.current = performance.now();
+      loop(performance.now());
     }
   }, []);
 
-  const loop = useCallback(() => {
+  const loop = useCallback((timestamp: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // Delta time normalization (capped at 2.0 to avoid huge leaps after tab switch)
+    const dt = Math.min(Math.max((timestamp - (lastTimeRef.current || timestamp)) / 16.67, 0.4), 2.0);
+    lastTimeRef.current = timestamp;
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     const particles = particlesRef.current;
-    const gravity = 0.11; // Reduced from 0.26 for slow, airy, weightless ribbon descent
+    const gravity = 0.27; // Realistic natural gravity (crisp, festive, active fall)
     const fov = 650;
+    const screenBottom = window.innerHeight + 100;
 
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i];
-      p.life++;
+      p.life += dt;
 
       // 1. Fluid drag & gravity
-      p.vx *= p.drag;
-      p.vy = p.vy * p.drag + gravity;
-      p.vz *= p.drag;
+      const dragFactor = Math.pow(p.drag, dt);
+      p.vx *= dragFactor;
+      p.vy = p.vy * dragFactor + gravity * dt;
+      p.vz *= dragFactor;
 
       // 2. Aerodynamic fluttering (纸片飘落微晃)
-      p.swayPhase += p.swaySpeed;
+      p.swayPhase += p.swaySpeed * dt;
       const swayX = Math.sin(p.swayPhase) * p.swayRadius;
       const swayZ = Math.cos(p.swayPhase) * (p.swayRadius * 0.6);
 
-      p.x += p.vx + swayX;
-      p.y += p.vy;
-      p.z += p.vz + swayZ;
+      p.x += (p.vx + swayX) * dt;
+      p.y += p.vy * dt;
+      p.z += (p.vz + swayZ) * dt;
 
       // 3. 3D Angular tumbling
-      p.rx += p.vrx;
-      p.ry += p.vry;
-      p.rz += p.vrz;
+      p.rx += p.vrx * dt;
+      p.ry += p.vry * dt;
+      p.rz += p.vrz * dt;
 
       p.vrx *= 0.998;
       p.vry *= 0.998;
       p.vrz *= 0.998;
 
-      // Opacity fadeout towards end of life (gentle fade in the last 22% of lifetime)
-      if (p.life > p.maxLife * 0.78) {
+      // Opacity fadeout towards end of life (gentle fade in the last 25%)
+      if (p.life > p.maxLife * 0.75) {
         const remaining = p.maxLife - p.life;
-        p.opacity = Math.max(0, remaining / (p.maxLife * 0.22));
+        p.opacity = Math.max(0, remaining / (p.maxLife * 0.25));
       }
 
-      // Cleanup
-      if (p.life >= p.maxLife || p.y > window.innerHeight + 150) {
+      // Cleanup when expired or off-screen
+      if (p.life >= p.maxLife || p.y > screenBottom) {
         particles.splice(i, 1);
         continue;
       }
 
       // ==========================================
-      // RENDERING ORDINARY PAPER CONFETTI
+      // RENDERING OPTIMIZED 3D CONFETTI
       // ==========================================
       const perspective = fov / Math.max(1, fov + p.z);
       const projX = p.x;
@@ -264,23 +285,21 @@ export const ConfettiCanvas: React.FC = () => {
       const cosY = Math.cos(p.ry), sinY = Math.sin(p.ry);
       const cosZ = Math.cos(p.rz), sinZ = Math.sin(p.rz);
 
-      // Helper to rotate local (lx, ly, lz) into world coords
-      const rotate3D = (lx3: number, ly3: number, lz3: number) => {
-        // Rotate Z
-        const x1 = lx3 * cosZ - ly3 * sinZ;
-        const y1 = lx3 * sinZ + ly3 * cosZ;
-        const z1 = lz3;
-        // Rotate X
-        const y2 = y1 * cosX - z1 * sinX;
-        const z2 = y1 * sinX + z1 * cosX;
-        // Rotate Y
+      // Fast inlined 3D rotation without object creation
+      const rotateX = (lx: number, ly: number, lz: number): number => {
+        const x1 = lx * cosZ - ly * sinZ;
+        const y1 = lx * sinZ + ly * cosZ;
+        const y2 = y1 * cosX - lz * sinX;
+        const z2 = y1 * sinX + lz * cosX;
         const x3 = x1 * cosY + z2 * sinY;
-        const z3 = -x1 * sinY + z2 * cosY;
-        return {
-          x: projX + x3 * perspective,
-          y: projY + y2 * perspective,
-          z: p.z + z3,
-        };
+        return projX + x3 * perspective;
+      };
+
+      const rotateY = (lx: number, ly: number, lz: number): number => {
+        const x1 = lx * cosZ - ly * sinZ;
+        const y1 = lx * sinZ + ly * cosZ;
+        const y2 = y1 * cosX - lz * sinX;
+        return projY + y2 * perspective;
       };
 
       ctx.save();
@@ -288,103 +307,88 @@ export const ConfettiCanvas: React.FC = () => {
 
       if (p.kind === 'spiral_ribbon' || p.kind === 'wavy_streamer') {
         // ============================================================
-        // CONTINUOUS PAPER RIBBON (完全消除胶卷横向格线，平滑连贯实心纸条)
+        // CONTINUOUS PAPER RIBBON (平滑连贯实心纸条，预分配坐标无 GC 压力)
         // ============================================================
         if (p.kind === 'spiral_ribbon') {
-          p.twistAngle += p.vTwist;
-          p.curlPhase += p.curlSpeed;
+          p.twistAngle += p.vTwist * dt;
+          p.curlPhase += p.curlSpeed * dt;
         } else {
-          p.wavePhase += p.waveSpeed;
+          p.wavePhase += p.waveSpeed * dt;
         }
 
-        const segCount = p.segmentCount;
+        const segCount = Math.min(p.segmentCount, MAX_SEGMENTS);
         const segLen = p.segmentLength;
         const ribWidth = p.ribbonWidth;
-
-        // Compute 3D backbone spine curve nodes
-        const leftStrip: { x: number; y: number; z: number }[] = [];
-        const rightStrip: { x: number; y: number; z: number }[] = [];
+        const halfW = ribWidth * 0.5;
 
         for (let s = 0; s <= segCount; s++) {
           const t = s / segCount;
           let spineX = 0;
-          let spineY = s * segLen - (segCount * segLen) / 2;
+          const spineY = s * segLen - (segCount * segLen) * 0.5;
           let spineZ = 0;
           let localRoll = 0;
 
           if (p.kind === 'spiral_ribbon') {
-            // Smooth corkscrew spiral ribbon
             const spiralAngle = s * p.spiralFrequency + p.curlPhase;
             const currentRadius = p.spiralRadius * Math.sin(t * Math.PI * 0.8 + 0.2);
             spineX = Math.cos(spiralAngle) * currentRadius;
             spineZ = Math.sin(spiralAngle) * currentRadius * 0.7;
             localRoll = p.twistAngle + s * 0.35;
           } else {
-            // Smooth wavy paper streamer
             const waveAngle = s * p.waveFrequency + p.wavePhase;
             spineX = Math.sin(waveAngle) * p.waveAmplitude * (0.5 + t * 0.5);
             spineZ = Math.cos(waveAngle) * (p.waveAmplitude * 0.4);
             localRoll = Math.sin(waveAngle) * 0.6;
           }
 
-          const halfW = ribWidth / 2;
           const rollCos = Math.cos(localRoll);
           const rollSin = Math.sin(localRoll);
 
           const lxL = spineX - halfW * rollCos;
-          const lyL = spineY;
           const lzL = spineZ + halfW * rollSin;
-
           const lxR = spineX + halfW * rollCos;
-          const lyR = spineY;
           const lzR = spineZ - halfW * rollSin;
 
-          leftStrip.push(rotate3D(lxL, lyL, lzL));
-          rightStrip.push(rotate3D(lxR, lyR, lzR));
+          bufLeftX[s] = rotateX(lxL, spineY, lzL);
+          bufLeftY[s] = rotateY(lxL, spineY, lzL);
+          bufRightX[s] = rotateX(lxR, spineY, lzR);
+          bufRightY[s] = rotateY(lxR, spineY, lzR);
         }
 
-        // Draw seamless continuous paper segments with clean front/back fill (NO transverse grid lines!)
+        // Draw seamless continuous paper segments
         for (let s = 0; s < segCount; s++) {
-          const p0 = leftStrip[s];
-          const p1 = rightStrip[s];
-          const p2 = rightStrip[s + 1];
-          const p3 = leftStrip[s + 1];
+          const p0x = bufLeftX[s], p0y = bufLeftY[s];
+          const p1x = bufRightX[s], p1y = bufRightY[s];
+          const p2x = bufRightX[s + 1], p2y = bufRightY[s + 1];
+          const p3x = bufLeftX[s + 1], p3y = bufLeftY[s + 1];
 
-          // Face normal Z component to determine paper front vs back
-          const ax = p1.x - p0.x, ay = p1.y - p0.y;
-          const bx = p3.x - p0.x, by = p3.y - p0.y;
-          const nz = ax * by - ay * bx;
+          // Face normal Z to determine paper front vs back
+          const nz = (p1x - p0x) * (p3y - p0y) - (p1y - p0y) * (p3x - p0x);
           const isFront = nz > 0;
 
           ctx.beginPath();
-          ctx.moveTo(p0.x, p0.y);
-          ctx.lineTo(p1.x, p1.y);
-          ctx.lineTo(p2.x, p2.y);
-          ctx.lineTo(p3.x, p3.y);
+          ctx.moveTo(p0x, p0y);
+          ctx.lineTo(p1x, p1y);
+          ctx.lineTo(p2x, p2y);
+          ctx.lineTo(p3x, p3y);
           ctx.closePath();
 
-          // Matte Paper shading: pure front color or slightly darker shaded underside
           ctx.fillStyle = isFront ? p.color.front : p.color.back;
           ctx.fill();
         }
 
-        // Draw ONLY the continuous outer side edges (longitudinal outline) to give clean paper cut definition
+        // Continuous outer longitudinal edge
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)';
         ctx.lineWidth = 0.5;
 
-        // Left long edge
         ctx.beginPath();
-        ctx.moveTo(leftStrip[0].x, leftStrip[0].y);
+        ctx.moveTo(bufLeftX[0], bufLeftY[0]);
         for (let s = 1; s <= segCount; s++) {
-          ctx.lineTo(leftStrip[s].x, leftStrip[s].y);
+          ctx.lineTo(bufLeftX[s], bufLeftY[s]);
         }
-        ctx.stroke();
-
-        // Right long edge
-        ctx.beginPath();
-        ctx.moveTo(rightStrip[0].x, rightStrip[0].y);
+        ctx.moveTo(bufRightX[0], bufRightY[0]);
         for (let s = 1; s <= segCount; s++) {
-          ctx.lineTo(rightStrip[s].x, rightStrip[s].y);
+          ctx.lineTo(bufRightX[s], bufRightY[s]);
         }
         ctx.stroke();
 
@@ -392,24 +396,22 @@ export const ConfettiCanvas: React.FC = () => {
         // ============================================================
         // SHORT PAPER STRIP (普通长方形纸条)
         // ============================================================
-        const w2 = (p.width * perspective) / 2;
-        const h2 = (p.height * perspective) / 2;
+        const w2 = (p.width * perspective) * 0.5;
+        const h2 = (p.height * perspective) * 0.5;
 
-        const p0 = rotate3D(-w2, -h2, 0);
-        const p1 = rotate3D(w2, -h2, 0);
-        const p2 = rotate3D(w2, h2, 0);
-        const p3 = rotate3D(-w2, h2, 0);
+        const p0x = rotateX(-w2, -h2, 0), p0y = rotateY(-w2, -h2, 0);
+        const p1x = rotateX(w2, -h2, 0), p1y = rotateY(w2, -h2, 0);
+        const p2x = rotateX(w2, h2, 0), p2y = rotateY(w2, h2, 0);
+        const p3x = rotateX(-w2, h2, 0), p3y = rotateY(-w2, h2, 0);
 
-        const ax = p1.x - p0.x, ay = p1.y - p0.y;
-        const bx = p3.x - p0.x, by = p3.y - p0.y;
-        const nz = ax * by - ay * bx;
+        const nz = (p1x - p0x) * (p3y - p0y) - (p1y - p0y) * (p3x - p0x);
         const isFront = nz > 0;
 
         ctx.beginPath();
-        ctx.moveTo(p0.x, p0.y);
-        ctx.lineTo(p1.x, p1.y);
-        ctx.lineTo(p2.x, p2.y);
-        ctx.lineTo(p3.x, p3.y);
+        ctx.moveTo(p0x, p0y);
+        ctx.lineTo(p1x, p1y);
+        ctx.lineTo(p2x, p2y);
+        ctx.lineTo(p3x, p3y);
         ctx.closePath();
 
         ctx.fillStyle = isFront ? p.color.front : p.color.back;
@@ -423,37 +425,33 @@ export const ConfettiCanvas: React.FC = () => {
         // ============================================================
         // FLAKE / SQUARE OR ROUND CONFETTI (普通小纸屑)
         // ============================================================
-        const w2 = (p.width * perspective) / 2;
-        const h2 = (p.height * perspective) / 2;
+        const w2 = (p.width * perspective) * 0.5;
+        const h2 = (p.height * perspective) * 0.5;
 
-        const p0 = rotate3D(-w2, -h2, 0);
-        const p1 = rotate3D(w2, -h2, 0);
-        const p2 = rotate3D(w2, h2, 0);
-        const p3 = rotate3D(-w2, h2, 0);
+        const p0x = rotateX(-w2, -h2, 0), p0y = rotateY(-w2, -h2, 0);
+        const p1x = rotateX(w2, -h2, 0), p1y = rotateY(w2, -h2, 0);
+        const p2x = rotateX(w2, h2, 0), p2y = rotateY(w2, h2, 0);
+        const p3x = rotateX(-w2, h2, 0), p3y = rotateY(-w2, h2, 0);
 
-        const ax = p1.x - p0.x, ay = p1.y - p0.y;
-        const bx = p3.x - p0.x, by = p3.y - p0.y;
-        const nz = ax * by - ay * bx;
+        const nz = (p1x - p0x) * (p3y - p0y) - (p1y - p0y) * (p3x - p0x);
         const isFront = nz > 0;
 
         if (p.isCircle) {
-          // Circular paper dot
           ctx.beginPath();
-          const cx = (p0.x + p2.x) / 2;
-          const cy = (p0.y + p2.y) / 2;
-          const radiusX = Math.hypot(p1.x - p0.x, p1.y - p0.y) / 2;
-          const radiusY = Math.hypot(p3.x - p0.x, p3.y - p0.y) / 2;
-          const angle = Math.atan2(p1.y - p0.y, p1.x - p0.x);
+          const cx = (p0x + p2x) * 0.5;
+          const cy = (p0y + p2y) * 0.5;
+          const radiusX = Math.hypot(p1x - p0x, p1y - p0y) * 0.5;
+          const radiusY = Math.hypot(p3x - p0x, p3y - p0y) * 0.5;
+          const angle = Math.atan2(p1y - p0y, p1x - p0x);
           ctx.ellipse(cx, cy, Math.max(0.5, radiusX), Math.max(0.5, radiusY), angle, 0, Math.PI * 2);
           ctx.fillStyle = isFront ? p.color.front : p.color.back;
           ctx.fill();
         } else {
-          // Square paper scrap
           ctx.beginPath();
-          ctx.moveTo(p0.x, p0.y);
-          ctx.lineTo(p1.x, p1.y);
-          ctx.lineTo(p2.x, p2.y);
-          ctx.lineTo(p3.x, p3.y);
+          ctx.moveTo(p0x, p0y);
+          ctx.lineTo(p1x, p1y);
+          ctx.lineTo(p2x, p2y);
+          ctx.lineTo(p3x, p3y);
           ctx.closePath();
 
           ctx.fillStyle = isFront ? p.color.front : p.color.back;
@@ -475,104 +473,6 @@ export const ConfettiCanvas: React.FC = () => {
     }
   }, []);
 
-  // Helper to safely extract class name string from standard and SVG elements
-  const getClassName = (el: Element): string => {
-    if (typeof el.className === 'string') {
-      return el.className;
-    }
-    if (el.className && typeof (el.className as any).baseVal === 'string') {
-      return (el.className as any).baseVal;
-    }
-    return el.getAttribute('class') || '';
-  };
-
-  // Determine whether an element or any of its ancestors is an interactive/clickable element
-  const isInteractiveElement = (target: EventTarget | null): boolean => {
-    if (!target || !(target instanceof Element)) return false;
-
-    let curr: Element | null = target;
-    let depth = 0;
-
-    const interactiveTags = new Set([
-      'BUTTON',
-      'A',
-      'INPUT',
-      'TEXTAREA',
-      'SELECT',
-      'LABEL',
-      'VIDEO',
-      'AUDIO',
-      'OPTION',
-      'NAV',
-    ]);
-
-    const interactiveRoles = new Set([
-      'button',
-      'link',
-      'tab',
-      'checkbox',
-      'switch',
-      'menuitem',
-      'option',
-      'dialog',
-      'combobox',
-      'slider',
-    ]);
-
-    while (curr && depth < 12 && curr !== document.body && curr !== document.documentElement) {
-      const tagName = curr.tagName.toUpperCase();
-      if (interactiveTags.has(tagName)) {
-        return true;
-      }
-
-      const role = curr.getAttribute('role');
-      if (role && interactiveRoles.has(role.toLowerCase())) {
-        return true;
-      }
-
-      if (curr.hasAttribute('onclick')) {
-        return true;
-      }
-
-      const classes = getClassName(curr);
-      if (
-        classes.includes('cursor-pointer') ||
-        classes.includes('cursor-grab') ||
-        classes.includes('cursor-grabbing')
-      ) {
-        return true;
-      }
-
-      // Inside modals or drawer panels
-      if (
-        curr.id === 'mobile-bottom-sheet' ||
-        curr.id === 'slide-drawer' ||
-        curr.id === 'slide-drawer-package' ||
-        curr.id === 'slide-drawer-contents-masked' ||
-        curr.id === 'project-modal' ||
-        curr.id === 'contact-modal' ||
-        classes.includes('z-50')
-      ) {
-        return true;
-      }
-
-      // Check computed style for cursor
-      try {
-        const cursor = window.getComputedStyle(curr).cursor;
-        if (cursor === 'pointer' || cursor === 'grab' || cursor === 'grabbing') {
-          return true;
-        }
-      } catch {
-        // ignore detached or cross-origin errors
-      }
-
-      curr = curr.parentElement;
-      depth++;
-    }
-
-    return false;
-  };
-
   // Sync canvas dimensions with viewport & Retina support
   useEffect(() => {
     const handleResize = () => {
@@ -590,47 +490,46 @@ export const ConfettiCanvas: React.FC = () => {
     handleResize();
     window.addEventListener('resize', handleResize);
 
-    // Global click/touch listener: trigger burst at click position unless clicking an interactive element
+    // Global click listener: trigger burst at click position unless clicking an interactive element
     const handlePointerDown = (e: PointerEvent) => {
-      // Only respond to primary button (left mouse button or touch)
       if (e.button !== 0) return;
 
-      const clientX = e.clientX;
-      const clientY = e.clientY;
-
-      // Prevent triggering on clickable elements (buttons, links, drawer controls, project cards, modals, etc.)
       const target = e.target as Element | null;
-      const pointEl = document.elementFromPoint(clientX, clientY);
-
-      if (isInteractiveElement(target) || isInteractiveElement(pointEl)) {
+      if (isInteractiveElement(target)) {
         return;
       }
 
-      spawnBurst(clientX, clientY, 52);
+      spawnBurst(e.clientX, e.clientY, 52);
     };
 
-    // Global pointer move listener: show custom confetti popper cursor whenever position is eligible to trigger confetti
+    // Fast pointer move listener: native .closest check, zero layout thrashing
+    let rafMoveId: number | null = null;
     const handlePointerMove = (e: PointerEvent) => {
-      // Touch events don't have cursor hover
       if (e.pointerType === 'touch') return;
 
-      const target = e.target as Element | null;
-      const pointEl = document.elementFromPoint(e.clientX, e.clientY);
+      if (rafMoveId) return;
+      rafMoveId = requestAnimationFrame(() => {
+        rafMoveId = null;
+        const target = e.target as Element | null;
+        const isInteractive = isInteractiveElement(target);
 
-      const isInteractive = isInteractiveElement(target) || isInteractiveElement(pointEl);
-
-      if (isInteractive) {
-        if (document.body.classList.contains('confetti-cursor-active')) {
-          document.body.classList.remove('confetti-cursor-active');
+        if (isInteractive) {
+          if (document.body.classList.contains('confetti-cursor-active')) {
+            document.body.classList.remove('confetti-cursor-active');
+          }
+        } else {
+          if (!document.body.classList.contains('confetti-cursor-active')) {
+            document.body.classList.add('confetti-cursor-active');
+          }
         }
-      } else {
-        if (!document.body.classList.contains('confetti-cursor-active')) {
-          document.body.classList.add('confetti-cursor-active');
-        }
-      }
+      });
     };
 
     const handlePointerLeave = () => {
+      if (rafMoveId) {
+        cancelAnimationFrame(rafMoveId);
+        rafMoveId = null;
+      }
       document.body.classList.remove('confetti-cursor-active');
     };
 
@@ -643,12 +542,15 @@ export const ConfettiCanvas: React.FC = () => {
       window.removeEventListener('pointerdown', handlePointerDown);
       window.removeEventListener('pointermove', handlePointerMove);
       document.removeEventListener('mouseleave', handlePointerLeave);
+      if (rafMoveId) {
+        cancelAnimationFrame(rafMoveId);
+      }
       document.body.classList.remove('confetti-cursor-active');
       if (animFrameIdRef.current) {
         cancelAnimationFrame(animFrameIdRef.current);
       }
     };
-  }, [spawnBurst]);
+  }, [spawnBurst, isInteractiveElement]);
 
   return (
     <canvas

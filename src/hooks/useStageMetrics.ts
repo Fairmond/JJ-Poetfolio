@@ -2,6 +2,8 @@ import { useState, useEffect, RefObject } from 'react';
 import { StageMetrics } from '../types';
 import { PC_CANVAS_WIDTH, PC_CANVAS_HEIGHT, PC_ASPECT_RATIO } from '../constants/layout';
 
+const TITLE_BASE_X = 246; // Shifted right by 50px per user request
+
 const DEFAULT_METRICS: StageMetrics = {
   scale: 1,
   panX: 0,
@@ -9,7 +11,7 @@ const DEFAULT_METRICS: StageMetrics = {
   windowLeftInCanvas: 0,
   windowRightInCanvas: PC_CANVAS_WIDTH,
   titleScale: 1.0,
-  titleX: 196,
+  titleX: TITLE_BASE_X,
   tornCenterX: 634,
   viewportWidth: typeof window !== 'undefined' ? window.innerWidth : PC_CANVAS_WIDTH,
 };
@@ -47,7 +49,7 @@ export function useStageMetrics(containerRef: RefObject<HTMLDivElement | null>):
       // 3. Targeted Title Scale & Placement Tuning for Flatter / Widescreen Screens
       const aspect = cw / Math.max(ch, 1);
       let titleScale = 1.0;
-      let titleX = 196;
+      let titleX = TITLE_BASE_X;
 
       if (aspect > PC_ASPECT_RATIO) {
         const excess = aspect - PC_ASPECT_RATIO;
@@ -55,8 +57,8 @@ export function useStageMetrics(containerRef: RefObject<HTMLDivElement | null>):
 
         // Slightly adapt left position to make use of expanded left width
         const leftSpaceAvailable = (PC_CANVAS_WIDTH / 2) - windowLeftInCanvas;
-        const dynamicLeft = windowLeftInCanvas + leftSpaceAvailable * 0.20;
-        titleX = Math.min(dynamicLeft, 196);
+        const dynamicLeft = windowLeftInCanvas + leftSpaceAvailable * 0.22;
+        titleX = Math.min(dynamicLeft + 50, TITLE_BASE_X);
       }
 
       setMetrics({
