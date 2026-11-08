@@ -20,8 +20,8 @@ export const MobileStage: React.FC<MobileStageProps> = ({
   const [stageWidth, setStageWidth] = useState(MOBILE_STAGE.DEFAULT_WIDTH);
   const [stageHeight, setStageHeight] = useState(MOBILE_STAGE.DEFAULT_HEIGHT);
 
-  // Parallax physics with gyroscope + touchmove fallback
-  const { renderPos, handleMouseMove, handleMouseLeave } = useParallax({ damping: 0.13, enableGyroscope: true });
+  // Parallax physics driven strictly by device gyroscope
+  const { renderPos } = useParallax({ damping: 0.13, enableGyroscope: true });
 
   // Responsive stage sizing
   useEffect(() => {
@@ -69,8 +69,6 @@ export const MobileStage: React.FC<MobileStageProps> = ({
         paddingTop: 'env(safe-area-inset-top, 0px)',
         touchAction: isDrawerOpen ? 'pan-y' : 'none',
       }}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
     >
       <div
         ref={stageRef}

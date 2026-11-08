@@ -129,8 +129,8 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
           </pattern>
         </defs>
 
-        {/* Rotated Torn Paper Strip Layer - shifted upward */}
-        <g transform={`translate(${renderPos.x * 12} ${-26 + renderPos.y * 12})`}>
+        {/* Rotated Torn Paper Strip Layer - shifted upward by 1/4 body (recalled half) */}
+        <g transform={`translate(${renderPos.x * 12} ${-49 + renderPos.y * 12})`}>
           <g transform="rotate(-40.0 363.905 379.456)">
             <image
               href="/mobile_bg_torn.png"
@@ -162,9 +162,9 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
           </g>
         </g>
 
-        {/* Display Headline & Subtitle - Scaled +30%, nudged down 1/4 body position with floating shadow */}
+        {/* Display Headline & Subtitle - Scaled +30%, shifted upward by 1/4 body with floating shadow */}
         <g
-          transform="translate(8 -11) translate(28 124) scale(1.3) translate(-28 -124)"
+          transform="translate(8 -34) translate(28 124) scale(1.3) translate(-28 -124)"
           filter="url(#mobileTitleFloatingShadow)"
         >
           <g transform="translate(28 0)">

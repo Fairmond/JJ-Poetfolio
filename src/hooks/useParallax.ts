@@ -110,31 +110,8 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
 
     requestDeviceOrientation();
 
-    // Touch interaction fallback (swipe / tilt on touch move provides direct tactile parallax)
-    const handleTouchMove = (e: TouchEvent) => {
-      if (e.touches.length === 0) return;
-      const touch = e.touches[0];
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-      targetPos.current = {
-        x: ((touch.clientX / width - 0.5) * 2.2),
-        y: ((touch.clientY / height - 0.5) * 2.2),
-      };
-    };
-
-    const handleTouchEnd = () => {
-      if (!hasGyroscope) {
-        targetPos.current = { x: 0, y: 0 };
-      }
-    };
-
-    window.addEventListener('touchmove', handleTouchMove, { passive: true });
-    window.addEventListener('touchend', handleTouchEnd);
-
     return () => {
       window.removeEventListener('deviceorientation', handleOrientation);
-      window.removeEventListener('touchmove', handleTouchMove);
-      window.removeEventListener('touchend', handleTouchEnd);
     };
   }, [enableGyroscope]);
 
