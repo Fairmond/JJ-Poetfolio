@@ -285,7 +285,7 @@ export const ArsenalStorageBox: React.FC<ArsenalStorageBoxProps> = ({
   return (
     <div className={`w-full flex flex-col gap-2 select-none ${className}`}>
       {/* Dynamic Active / Hover HUD Banner (Skill readout above the box) */}
-      <div className="min-h-7 flex items-center justify-between px-1 text-[15px]">
+      <div className="min-h-6 flex items-center justify-between px-1 text-[13px]">
         {displayedItem ? (
           <motion.div
             key={displayedItem.id}
@@ -293,17 +293,17 @@ export const ArsenalStorageBox: React.FC<ArsenalStorageBoxProps> = ({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -3 }}
             transition={{ duration: 0.15 }}
-            className="flex items-center gap-2 truncate"
+            className="flex items-center gap-1.5 truncate"
           >
-            <span className="font-bold text-[#292727] tracking-tight text-[15px]">
+            <span className="font-bold text-[#292727] tracking-tight text-[13.5px]">
               {displayedItem.name}
             </span>
-            <span className="text-[#8c867c] text-[15px]">·</span>
-            <span className="text-[#59554e] text-[15px] truncate">
+            <span className="text-[#8c867c] text-[13px]">·</span>
+            <span className="text-[#59554e] text-[12.5px] truncate">
               {displayedItem.skillTitle}
             </span>
             <span
-              className="text-[12px] px-2 py-0.5 rounded font-medium border shrink-0 hidden sm:inline-block"
+              className="text-[11px] px-1.5 py-0.5 rounded font-medium border shrink-0 hidden sm:inline-block"
               style={{
                 borderColor: `${displayedItem.highlightColor}40`,
                 backgroundColor: displayedItem.accentBg,
@@ -314,8 +314,8 @@ export const ArsenalStorageBox: React.FC<ArsenalStorageBoxProps> = ({
             </span>
           </motion.div>
         ) : (
-          <div className="flex items-center gap-2 text-[#777373] text-[15px]">
-            <span className="inline-block w-2 h-2 rounded-full bg-[#bbb5a7]" />
+          <div className="flex items-center gap-2 text-[#777373] text-[12.5px]">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#bbb5a7]" />
             <span>轻触或悬停工具图标，检视技能与核心产出</span>
           </div>
         )}
@@ -432,17 +432,17 @@ export const ArsenalStorageBox: React.FC<ArsenalStorageBoxProps> = ({
             transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
             className="overflow-hidden"
           >
-            <div className="bg-[#fcfbf7] border border-[#e2ddd1] rounded-xl p-3 shadow-sm flex flex-col gap-1.5 mt-1 text-xs">
+            <div className="bg-[#fcfbf7] border border-[#e2ddd1] rounded-xl p-2.5 sm:p-3 shadow-sm flex flex-col gap-1.5 mt-1">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-[#292727] text-[16px]">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="font-bold text-[#292727] text-[14px] shrink-0">
                     {activeItem.name}
                   </span>
-                  <span className="text-[#777373] text-[15px]">
+                  <span className="text-[#777373] text-[12px] truncate">
                     {activeItem.category}
                   </span>
                   <span
-                    className="text-[12px] px-2 py-0.5 rounded font-medium border"
+                    className="text-[11px] px-1.5 py-0.5 rounded font-medium border shrink-0"
                     style={{
                       borderColor: `${activeItem.highlightColor}40`,
                       backgroundColor: activeItem.accentBg,
@@ -455,17 +455,17 @@ export const ArsenalStorageBox: React.FC<ArsenalStorageBoxProps> = ({
                 <button
                   type="button"
                   onClick={() => setActiveItem(null)}
-                  className="text-[#777373] hover:text-[#292727] text-[14px] px-2 py-0.5 rounded cursor-pointer transition-colors"
+                  className="text-[#777373] hover:text-[#292727] text-[12px] px-1.5 py-0.5 rounded cursor-pointer transition-colors shrink-0"
                 >
                   ✕ 关闭
                 </button>
               </div>
 
-              <div className="text-[#3f3b35] font-medium text-[15px]">
+              <div className="text-[#3f3b35] font-medium text-[12.5px] leading-snug">
                 {activeItem.skillTitle}
               </div>
 
-              <p className="text-[#59554e] leading-relaxed text-[15px] mt-0.5">
+              <p className="text-[#59554e] leading-relaxed text-[12px] mt-0.5">
                 {activeItem.description}
               </p>
             </div>
