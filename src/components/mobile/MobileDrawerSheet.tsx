@@ -293,9 +293,20 @@ export const MobileDrawerSheet: React.FC<MobileDrawerSheetProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center gap-1 text-[12px] text-[#666161] font-medium shrink-0">
-                <span>浏览</span>
-                <span className="text-[10px]">►</span>
+              <div className="flex items-center gap-2 shrink-0">
+                <a
+                  href="https://livefor.2371402599.workers.dev/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="px-2.5 py-0.5 bg-neutral-900 hover:bg-black text-white rounded text-[11px] font-medium flex items-center transition-all shadow-xs cursor-pointer active:scale-95 no-underline z-10"
+                >
+                  官网入口
+                </a>
+                <div className="flex items-center gap-1 text-[12px] text-[#666161] font-medium">
+                  <span>详情</span>
+                  <span className="text-[10px]">►</span>
+                </div>
               </div>
             </div>
 

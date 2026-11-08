@@ -97,48 +97,23 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose }) 
                 </ul>
               </div>
             )}
-
-            {/* Video Demo / Interactive Mockup Container */}
-            <div className="pt-4 border-t border-neutral-200">
-              {project.videoUrl ? (
-                <div className="space-y-2">
-                  <h3 className="text-xs uppercase tracking-widest text-neutral-400 font-bold flex items-center gap-1.5">
-                    <ExternalLink className="w-3.5 h-3.5 text-neutral-700" />
-                    演示视频 / DEMO VIDEO
-                  </h3>
-                  <div className="w-full rounded-2xl overflow-hidden bg-black shadow-xl border border-neutral-300/80 relative">
-                    <video
-                      src={project.videoUrl}
-                      poster="/demo_video_poster.jpg"
-                      autoPlay
-                      loop
-                      muted
-                      playsInline
-                      preload="auto"
-                      controls
-                      className="w-full aspect-video object-cover"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="w-full h-48 sm:h-60 bg-neutral-900 rounded-2xl p-6 flex flex-col items-center justify-center text-center text-neutral-300 relative overflow-hidden group">
-                  <div className="absolute inset-0 bg-gradient-to-tr from-teal-900/40 via-neutral-900 to-purple-900/40" />
-                  <div className="relative z-10 space-y-3 max-w-md">
-                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md text-white mx-auto">
-                      <ExternalLink className="w-6 h-6" />
-                    </div>
-                    <h4 className="text-base font-bold text-white">线上案例展示与原型预览</h4>
-                    <p className="text-xs text-neutral-400">
-                      该项目展示包含完整 UX 人群旅程图、视觉规范指南及响应式 Demo。
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 bg-neutral-100 border-t border-neutral-200 flex justify-end">
+          <div className="px-6 py-4 bg-neutral-100 border-t border-neutral-200 flex items-center justify-between">
+            {project.websiteUrl ? (
+              <a
+                href={project.websiteUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-neutral-900 hover:bg-black text-white text-xs font-semibold rounded-full transition-all shadow-sm cursor-pointer no-underline active:scale-95"
+              >
+                <span>官网入口</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            ) : (
+              <div />
+            )}
             <button
               onClick={onClose}
               className="px-5 py-2 bg-neutral-900 hover:bg-black text-white text-xs font-semibold rounded-full transition-colors cursor-pointer"

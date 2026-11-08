@@ -17,6 +17,21 @@ export interface ProjectItem {
   imagePlaceholder?: string;
   videoUrl?: string;
   videoPoster?: string;
+  websiteUrl?: string;
+  brandDesign?: BrandDesignInfo;
+}
+
+export interface BrandColorItem {
+  name: string;
+  hex: string;
+  role: string;
+}
+
+export interface BrandDesignInfo {
+  concept: string;
+  visualIdentity: string;
+  colorPalette?: BrandColorItem[];
+  guidelines?: string[];
 }
 
 export interface ContactInfo {

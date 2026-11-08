@@ -373,17 +373,18 @@ export const PcDrawer: React.FC<PcDrawerProps> = ({
                             <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
                             演示视频 · DEMO
                           </div>
-                          <button
-                            type="button"
+                          <a
+                            href="https://livefor.2371402599.workers.dev/"
+                            target="_blank"
+                            rel="noopener noreferrer"
                             onClick={(e) => {
                               e.stopPropagation();
-                              onSelectProject(PROJECTS_DATA[0]);
                             }}
-                            className="absolute bottom-2 right-2 px-2.5 py-1 bg-black/80 hover:bg-black backdrop-blur-md rounded-md text-[11px] text-white font-medium flex items-center gap-1 transition-all cursor-pointer shadow-sm hover:scale-105 active:scale-95"
+                            className="absolute bottom-2 right-2 px-2.5 py-1 bg-black/80 hover:bg-black backdrop-blur-md rounded-md text-[11px] text-white font-medium flex items-center transition-all cursor-pointer shadow-sm hover:scale-105 active:scale-95 no-underline z-10"
+                            title="官网入口"
                           >
-                            <span>全屏浏览</span>
-                            <span>↗</span>
-                          </button>
+                            官网入口
+                          </a>
                         </motion.div>
                       </div>
                     </div>
