@@ -4,7 +4,7 @@
 @font-face {
   font-family: 'CopperplateGothic-Bold';
   src: url('/fonts/COPRGTB.TTF') format('truetype');
-  font-weight: 700;
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }
@@ -12,7 +12,7 @@
 @font-face {
   font-family: 'Copperplate Gothic';
   src: url('/fonts/COPRGTB.TTF') format('truetype');
-  font-weight: 700;
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }
@@ -20,7 +20,7 @@
 @font-face {
   font-family: 'Copperplate';
   src: url('/fonts/COPRGTB.TTF') format('truetype');
-  font-weight: 700;
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }
@@ -28,7 +28,7 @@
 @font-face {
   font-family: 'Copperplate Gothic Bold';
   src: url('/fonts/COPRGTB.TTF') format('truetype');
-  font-weight: 700;
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }
@@ -36,7 +36,7 @@
 @font-face {
   font-family: 'CopperplateGothic-Light';
   src: url('/fonts/COPRGTL.TTF') format('truetype');
-  font-weight: 300;
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }
@@ -44,7 +44,15 @@
 @font-face {
   font-family: 'Copperplate Gothic Light';
   src: url('/fonts/COPRGTL.TTF') format('truetype');
-  font-weight: 300;
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'FZFYSJW';
+  src: url('/fonts/FZFYSJW.TTF') format('truetype');
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }
@@ -52,7 +60,7 @@
 @font-face {
   font-family: 'FZFYSJW--GB1-0';
   src: url('/fonts/FZFYSJW.TTF') format('truetype');
-  font-weight: normal;
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }
@@ -60,7 +68,7 @@
 @font-face {
   font-family: 'FZFengYaSongS-GB';
   src: url('/fonts/FZFYSJW.TTF') format('truetype');
-  font-weight: normal;
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }
@@ -68,7 +76,7 @@
 @font-face {
   font-family: '方正风雅宋简体';
   src: url('/fonts/FZFYSJW.TTF') format('truetype');
-  font-weight: normal;
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }
@@ -76,7 +84,7 @@
 @font-face {
   font-family: '方正风雅宋简';
   src: url('/fonts/FZFYSJW.TTF') format('truetype');
-  font-weight: normal;
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }

@@ -7,6 +7,38 @@ interface PcSvgDefsProps {
 export const PcSvgDefs: React.FC<PcSvgDefsProps> = ({ isDrawerOpen }) => {
   return (
     <defs>
+      <style>{`
+        @font-face {
+          font-family: 'CopperplateGothic-Bold';
+          src: url('/fonts/COPRGTB.TTF') format('truetype');
+          font-weight: 100 900;
+          font-display: swap;
+        }
+        @font-face {
+          font-family: 'Copperplate Gothic';
+          src: url('/fonts/COPRGTB.TTF') format('truetype');
+          font-weight: 100 900;
+          font-display: swap;
+        }
+        @font-face {
+          font-family: 'Copperplate';
+          src: url('/fonts/COPRGTB.TTF') format('truetype');
+          font-weight: 100 900;
+          font-display: swap;
+        }
+        @font-face {
+          font-family: 'FZFYSJW--GB1-0';
+          src: url('/fonts/FZFYSJW.TTF') format('truetype');
+          font-weight: 100 900;
+          font-display: swap;
+        }
+        @font-face {
+          font-family: 'FZFengYaSongS-GB';
+          src: url('/fonts/FZFYSJW.TTF') format('truetype');
+          font-weight: 100 900;
+          font-display: swap;
+        }
+      `}</style>
       <filter id="badgeShadow" x="-50%" y="-50%" width="200%" height="200%">
         <feDropShadow dx="6" dy="12" stdDeviation="18" floodColor="#000000" floodOpacity="0.28" />
       </filter>

@@ -91,16 +91,18 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
         typeof (DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> })
           .requestPermission === 'function'
       ) {
-        (DeviceOrientationEvent as unknown as { requestPermission: () => Promise<string> })
-          .requestPermission()
-          .then((permissionState: string) => {
-            if (permissionState === 'granted') {
-              window.addEventListener('deviceorientation', handleOrientation);
-            }
-          })
-          .catch(() => {
-            // Permission denied or dismissed
-          });
+        const onFirstInteraction = () => {
+          (DeviceOrientationEvent as unknown as { requestPermission: () => Promise<string> })
+            .requestPermission()
+            .then((permissionState: string) => {
+              if (permissionState === 'granted') {
+                window.addEventListener('deviceorientation', handleOrientation);
+              }
+            })
+            .catch(() => {});
+        };
+        window.addEventListener('click', onFirstInteraction, { once: true, passive: true });
+        window.addEventListener('touchend', onFirstInteraction, { once: true, passive: true });
       } else if ('DeviceOrientationEvent' in window) {
         window.addEventListener('deviceorientation', handleOrientation);
       }
@@ -108,9 +110,9 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
 
     requestDeviceOrientation();
 
-    // Touch interaction fallback (swipe / tilt on touch move if gyro is not active or flat)
+    // Touch interaction fallback (swipe / tilt on touch move provides direct tactile parallax)
     const handleTouchMove = (e: TouchEvent) => {
-      if (hasGyroscope || e.touches.length === 0) return;
+      if (e.touches.length === 0) return;
       const touch = e.touches[0];
       const width = window.innerWidth;
       const height = window.innerHeight;

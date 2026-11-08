@@ -397,14 +397,8 @@ export const MobileDrawerSheet: React.FC<MobileDrawerSheetProps> = ({
         </div>
       </div>
 
-      {/* Bottom Inner Shadow - ultra-tight 5px contact crease shadow tapering to sides */}
-      <div
-        className="absolute left-[6.2%] right-[6.2%] h-[5px] pointer-events-none z-30"
-        style={{
-          bottom: `${Math.max(marginBottom < 0 ? -marginBottom * 0.1 : 24, 20)}px`,
-          background: 'radial-gradient(ellipse 50% 100% at 50% 100%, rgba(0, 0, 0, 0.16) 0%, rgba(0, 0, 0, 0.11) 35%, rgba(0, 0, 0, 0.05) 65%, rgba(0, 0, 0, 0.015) 88%, transparent 100%)',
-        }}
-      />
+      {/* Seamless downward extension ensuring no gaps or edges at the bottom */}
+      <div className="absolute top-[99.5%] left-0 right-0 h-[400px] bg-[#f7f5f0] pointer-events-none" />
     </motion.div>
   );
 };

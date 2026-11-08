@@ -21,7 +21,7 @@ export const MobileStage: React.FC<MobileStageProps> = ({
   const [stageHeight, setStageHeight] = useState(MOBILE_STAGE.DEFAULT_HEIGHT);
 
   // Parallax physics with gyroscope + touchmove fallback
-  const { renderPos } = useParallax({ damping: 0.13, enableGyroscope: true });
+  const { renderPos, handleMouseMove, handleMouseLeave } = useParallax({ damping: 0.13, enableGyroscope: true });
 
   // Responsive stage sizing
   useEffect(() => {
@@ -52,11 +52,11 @@ export const MobileStage: React.FC<MobileStageProps> = ({
     };
   }, []);
 
-  // Strict dynamic drawer layout calculations
+  // Strict dynamic drawer layout calculations: +18px peek ensures "关于我 About me" and bounce arrow are fully visible above mobile navigation bars
   const drawerWidth = Math.max(stageWidth - 10, 280);
   const scale = drawerWidth / MOBILE_STAGE.DESIGN_W;
   const drawerHeight = drawerWidth * (MOBILE_STAGE.DESIGN_H / MOBILE_STAGE.DESIGN_W);
-  const peekHeight = MOBILE_STAGE.PEEK_HANDLE_HEIGHT * scale;
+  const peekHeight = (MOBILE_STAGE.PEEK_HANDLE_HEIGHT + 18) * scale;
   const maxAllowedOffset = Math.max(stageHeight - 64 - peekHeight, 200);
   const openOffset = Math.min(drawerHeight - peekHeight, maxAllowedOffset);
   const marginBottom = -(drawerHeight - peekHeight);
@@ -67,8 +67,10 @@ export const MobileStage: React.FC<MobileStageProps> = ({
       className="fixed inset-0 w-full h-full h-[100dvh] bg-[#eae8e4] text-[#292727] flex flex-col items-center justify-between overflow-hidden select-none no-scrollbar box-border"
       style={{
         paddingTop: 'env(safe-area-inset-top, 0px)',
-        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        touchAction: isDrawerOpen ? 'pan-y' : 'none',
       }}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
     >
       <div
         ref={stageRef}

@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { CORE_PRELOAD_ASSETS } from '../constants/assets';
 
 interface UseAssetPreloadOptions {
   timeoutMs?: number;
   assets?: readonly string[];
+  minDisplayTimeMs?: number;
 }
 
 interface UseAssetPreloadResult {
@@ -14,64 +15,122 @@ interface UseAssetPreloadResult {
 }
 
 /**
- * Preload critical image assets with fallback safety timeout and progress tracking.
+ * Preload critical image assets and fonts with GPU bitmap decoding
+ * to guarantee zero pop-in before the preloader exits.
  */
 export function useAssetPreload(options: UseAssetPreloadOptions = {}): UseAssetPreloadResult {
-  const { timeoutMs = 1800, assets = CORE_PRELOAD_ASSETS } = options;
+  const {
+    timeoutMs = 12000,
+    assets = CORE_PRELOAD_ASSETS,
+    minDisplayTimeMs = 500,
+  } = options;
+
   const [isLoading, setIsLoading] = useState(true);
   const [loadedCount, setLoadedCount] = useState(0);
+  const [displayProgress, setDisplayProgress] = useState(0);
+  const startTimeRef = useRef(Date.now());
 
   useEffect(() => {
     let isMounted = true;
-    let count = 0;
+    let completed = 0;
+    startTimeRef.current = Date.now();
 
-    const promises = assets.map((src) => {
+    // Deduplicate asset URLs
+    const uniqueAssets = Array.from(new Set(assets));
+    const totalItems = uniqueAssets.length;
+
+    if (totalItems === 0) {
+      setIsLoading(false);
+      setDisplayProgress(100);
+      return;
+    }
+
+    const preloadSingleImage = (src: string): Promise<void> => {
       return new Promise<void>((resolve) => {
         const img = new Image();
         img.src = src;
-        img.onload = () => {
-          if (isMounted) {
-            count += 1;
-            setLoadedCount(count);
-          }
-          resolve();
-        };
-        img.onerror = () => {
-          if (isMounted) {
-            count += 1;
-            setLoadedCount(count);
-          }
-          resolve();
-        };
-      });
-    });
 
-    // Ensure assets are preloaded or fallback after max timeout
-    const timeout = setTimeout(() => {
+        const onDone = async () => {
+          // Decode image into GPU memory to eliminate blank paint frame
+          if ('decode' in img) {
+            try {
+              await img.decode();
+            } catch {
+              // Ignore decode rejection if browser doesn't support or already decoded
+            }
+          }
+          if (isMounted) {
+            completed += 1;
+            setLoadedCount(completed);
+            setDisplayProgress(Math.round((completed / totalItems) * 100));
+          }
+          resolve();
+        };
+
+        if (img.complete && img.naturalWidth > 0) {
+          onDone();
+        } else {
+          img.onload = onDone;
+          img.onerror = () => {
+            // Treat broken image gracefully so app never freezes
+            if (isMounted) {
+              completed += 1;
+              setLoadedCount(completed);
+              setDisplayProgress(Math.round((completed / totalItems) * 100));
+            }
+            resolve();
+          };
+        }
+      });
+    };
+
+    // Preload all critical images
+    const imagePromises = uniqueAssets.map(preloadSingleImage);
+
+    // Also wait for document web fonts to be fully loaded
+    const fontsPromise = (typeof document !== 'undefined' && document.fonts && document.fonts.ready)
+      ? document.fonts.ready.catch(() => {})
+      : Promise.resolve();
+
+    const finishLoading = () => {
+      if (!isMounted) return;
+      const elapsed = Date.now() - startTimeRef.current;
+      const remainingTime = Math.max(0, minDisplayTimeMs - elapsed);
+
+      setTimeout(() => {
+        if (isMounted) {
+          setDisplayProgress(100);
+          // Brief 200ms pause at 100% so user perceives completion before fade-out
+          setTimeout(() => {
+            if (isMounted) {
+              setIsLoading(false);
+            }
+          }, 200);
+        }
+      }, remainingTime);
+    };
+
+    // Safety timeout: only fallback if network genuinely hangs
+    const safetyTimeout = setTimeout(() => {
       if (isMounted) {
-        setIsLoading(false);
+        finishLoading();
       }
     }, timeoutMs);
 
-    Promise.all(promises).then(() => {
-      if (isMounted) {
-        setTimeout(() => {
-          setIsLoading(false);
-        }, 150);
-      }
+    Promise.all([...imagePromises, fontsPromise]).then(() => {
+      clearTimeout(safetyTimeout);
+      finishLoading();
     });
 
     return () => {
       isMounted = false;
-      clearTimeout(timeout);
+      clearTimeout(safetyTimeout);
     };
-  }, [assets, timeoutMs]);
-
-  const progress = assets.length > 0 ? Math.round((loadedCount / assets.length) * 100) : 100;
+  }, [assets, timeoutMs, minDisplayTimeMs]);
 
   return {
     isLoading,
-    progress,
+    progress: displayProgress,
     loadedCount,
     totalCount: assets.length,
   };
