@@ -72,7 +72,7 @@ export const MobileStage: React.FC<MobileStageProps> = ({
     >
       <div
         ref={stageRef}
-        className="w-full max-w-[430px] h-full flex-1 min-h-0 relative flex flex-col items-center justify-between overflow-hidden"
+        className="w-full max-w-[640px] h-full flex-1 min-h-0 relative flex flex-col items-center justify-between overflow-hidden"
       >
         {/* Top Fixed Header */}
         <MobileHeader onLogoClick={() => setIsDrawerOpen(false)} />

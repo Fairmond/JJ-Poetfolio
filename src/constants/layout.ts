@@ -37,7 +37,7 @@ export const PC_HERO_FRAME = {
  * Mobile Drawer / Stage specifications.
  */
 export const MOBILE_STAGE = {
-  MAX_WIDTH: 430,
+  MAX_WIDTH: 640,
   DEFAULT_WIDTH: 393,
   DEFAULT_HEIGHT: 852,
   DESIGN_W: 407.521,
