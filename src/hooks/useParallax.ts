@@ -86,32 +86,58 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
     };
 
     const requestDeviceOrientation = () => {
+      // 1. Immediately register orientation listeners so Android, webviews, and previously-granted iOS work instantly without clicking
+      window.addEventListener('deviceorientation', handleOrientation, true);
+      window.addEventListener('deviceorientationabsolute', handleOrientation, true);
+
+      // 2. If browser requires explicit requestPermission (e.g. iOS Safari 13+), attempt auto-request + bind to first interaction
       if (
         typeof DeviceOrientationEvent !== 'undefined' &&
         typeof (DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> })
           .requestPermission === 'function'
       ) {
-        const onFirstInteraction = () => {
-          (DeviceOrientationEvent as unknown as { requestPermission: () => Promise<string> })
-            .requestPermission()
+        const reqPerm = (DeviceOrientationEvent as unknown as { requestPermission: () => Promise<string> });
+
+        // Try calling immediately on mount (works in some webviews, standalone PWAs, and relaxed contexts)
+        try {
+          reqPerm.requestPermission()
             .then((permissionState: string) => {
               if (permissionState === 'granted') {
-                window.addEventListener('deviceorientation', handleOrientation);
+                window.addEventListener('deviceorientation', handleOrientation, true);
+                window.addEventListener('deviceorientationabsolute', handleOrientation, true);
               }
             })
             .catch(() => {});
+        } catch {
+          // Expected in standard Safari without user gesture
+        }
+
+        // Also bind to first interaction on both window and document with capture to trigger permission prompt seamlessly
+        const onFirstInteraction = () => {
+          try {
+            reqPerm.requestPermission()
+              .then((permissionState: string) => {
+                if (permissionState === 'granted') {
+                  window.addEventListener('deviceorientation', handleOrientation, true);
+                  window.addEventListener('deviceorientationabsolute', handleOrientation, true);
+                }
+              })
+              .catch(() => {});
+          } catch {}
         };
-        window.addEventListener('click', onFirstInteraction, { once: true, passive: true });
-        window.addEventListener('touchend', onFirstInteraction, { once: true, passive: true });
-      } else if ('DeviceOrientationEvent' in window) {
-        window.addEventListener('deviceorientation', handleOrientation);
+
+        window.addEventListener('touchend', onFirstInteraction, { once: true, passive: true, capture: true });
+        window.addEventListener('click', onFirstInteraction, { once: true, passive: true, capture: true });
+        document.addEventListener('touchend', onFirstInteraction, { once: true, passive: true, capture: true });
+        document.addEventListener('click', onFirstInteraction, { once: true, passive: true, capture: true });
       }
     };
 
     requestDeviceOrientation();
 
     return () => {
-      window.removeEventListener('deviceorientation', handleOrientation);
+      window.removeEventListener('deviceorientation', handleOrientation, true);
+      window.removeEventListener('deviceorientationabsolute', handleOrientation, true);
     };
   }, [enableGyroscope]);
 

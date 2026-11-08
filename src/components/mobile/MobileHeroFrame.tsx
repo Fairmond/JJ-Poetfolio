@@ -200,13 +200,13 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
           </g>
         </g>
 
-        {/* 3D HERO FRAME PACKAGE - Scaled +5% (0.92 * 1.05 = 0.966), shifted upward slightly */}
+        {/* 3D HERO FRAME PACKAGE - Outer frame scale remains 0.966 */}
         <g transform="translate(0 -16) translate(196.5 375) scale(0.966) translate(-196.5 -375)">
           <g
             transform={`translate(${-1051 + renderPos.x * 22} ${-21.038 + renderPos.y * 22})`}
             className="group select-none pointer-events-auto"
           >
-            {/* Layer 1: Bottom Portrait Studio Background */}
+            {/* Layer 1: Bottom Portrait Studio Background - Scaled +20% */}
             <g
               clipPath="url(#mobile-clip-bottom-photo)"
               transform="translate(1100.563 269.994)"
@@ -216,11 +216,11 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
                 xlinkHref="/mobile_portrait_bottom.png"
                 width={306}
                 height={408}
-                transform={`translate(${-12.563 - renderPos.x * 14} ${-57.956 - renderPos.y * 14})`}
+                transform={`translate(${-12.563 - renderPos.x * 14} ${-57.956 - renderPos.y * 14}) translate(144.4 150) scale(1.2) translate(-144.4 -150)`}
               />
             </g>
 
-            {/* Layer 2: 3D Frame & Outer Shadow */}
+            {/* Layer 2: 3D Frame & Outer Shadow (Unchanged) */}
             <image
               href="/mobile_frame.png"
               xlinkHref="/mobile_frame.png"
@@ -230,7 +230,7 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
               className="pointer-events-none"
             />
 
-            {/* Layer 3: Tape bar / Shadow */}
+            {/* Layer 3: Tape bar / Shadow (Unchanged) */}
             <rect
               width={136.328}
               height={17.167}
@@ -244,7 +244,7 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
               transform="rotate(-6.02 3181.999 -11001.704)"
             />
 
-            {/* Layer 4: Upper Cutout Portrait */}
+            {/* Layer 4: Upper Cutout Portrait - NOT scaled (per user request: 立体抠像也不放大) */}
             <g
               clipPath="url(#mobile-clip-top-photo)"
               transform="translate(1100.485 216.921)"
@@ -259,7 +259,7 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
             </g>
           </g>
 
-          {/* Circular Holographic Badge / Stamp Avatar (Upper Layer: Opposite Parallax Direction) */}
+          {/* Circular Holographic Badge / Stamp Avatar - Base badge/avatar NOT scaled */}
           <g
             transform={`translate(${-1418.955 - renderPos.x * 26} ${-228.976 - renderPos.y * 26})`}
             filter="url(#mobileBadgeShadow)"
@@ -279,39 +279,41 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
               transform="translate(1683.654 686.814)"
             />
 
-            {/* Holographic Iridescent Sheen Layers / 镭射流光与虹彩视差蒙版层 */}
+            {/* Holographic Iridescent Sheen Layers / 镭射流光与虹彩视差蒙版层 - Scaled +20% */}
             <g clipPath="url(#mobileBadgeCircleClip)">
-              {/* 1. Realistic Holographic Rainbow Texture: color-dodge blend with dynamic parallax shift & rotation */}
-              <image
-                href="/holo_texture.png"
-                xlinkHref="/holo_texture.png"
-                x={1683.654 - 50}
-                y={686.814 - 50}
-                width={97.301 + 100}
-                height={97.196 + 100}
-                preserveAspectRatio="xMidYMid slice"
-                style={{
-                  mixBlendMode: 'color-dodge',
-                  opacity: 0.38,
-                  transform: `translate(${renderPos.x * 48}px, ${renderPos.y * 48}px) rotate(${renderPos.x * 45}deg)`,
-                  transformOrigin: '1732.375px 735.429px',
-                }}
-              />
+              <g transform="translate(1732.375 735.429) scale(1.2) translate(-1732.375 -735.429)">
+                {/* 1. Realistic Holographic Rainbow Texture: color-dodge blend with dynamic parallax shift & rotation */}
+                <image
+                  href="/holo_texture.png"
+                  xlinkHref="/holo_texture.png"
+                  x={1683.654 - 50}
+                  y={686.814 - 50}
+                  width={97.301 + 100}
+                  height={97.196 + 100}
+                  preserveAspectRatio="xMidYMid slice"
+                  style={{
+                    mixBlendMode: 'color-dodge',
+                    opacity: 0.42,
+                    transform: `translate(${renderPos.x * 48}px, ${renderPos.y * 48}px) rotate(${renderPos.x * 45}deg)`,
+                    transformOrigin: '1732.375px 735.429px',
+                  }}
+                />
 
-              {/* 2. Specular Holographic Glare Sheen Line: overlay blend with opposite sweep */}
-              <rect
-                x={1683.654 - 40}
-                y={686.814 - 40}
-                width={97.301 + 80}
-                height={97.196 + 80}
-                fill="url(#mobileHoloSheen)"
-                style={{
-                  mixBlendMode: 'overlay',
-                  opacity: 0.35,
-                  transform: `translate(${-renderPos.x * 56}px, ${-renderPos.y * 56}px) rotate(${45 + renderPos.y * 35}deg)`,
-                  transformOrigin: '1732.375px 735.429px',
-                }}
-              />
+                {/* 2. Specular Holographic Glare Sheen Line: overlay blend with opposite sweep */}
+                <rect
+                  x={1683.654 - 40}
+                  y={686.814 - 40}
+                  width={97.301 + 80}
+                  height={97.196 + 80}
+                  fill="url(#mobileHoloSheen)"
+                  style={{
+                    mixBlendMode: 'overlay',
+                    opacity: 0.4,
+                    transform: `translate(${-renderPos.x * 56}px, ${-renderPos.y * 56}px) rotate(${45 + renderPos.y * 35}deg)`,
+                    transformOrigin: '1732.375px 735.429px',
+                  }}
+                />
+              </g>
             </g>
           </g>
         </g>
