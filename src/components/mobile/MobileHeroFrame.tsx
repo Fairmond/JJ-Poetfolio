@@ -101,9 +101,9 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
           {/* Holographic Specular Moving Sheen Linear Gradient */}
           <linearGradient id="mobileHoloSheen" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor="#ffffff" stopOpacity="0" />
-            <stop offset="42%" stopColor="#ffffff" stopOpacity="0.12" />
-            <stop offset="50%" stopColor="#ffffff" stopOpacity="0.65" />
-            <stop offset="58%" stopColor="#ffffff" stopOpacity="0.12" />
+            <stop offset="42%" stopColor="#ffffff" stopOpacity="0.08" />
+            <stop offset="50%" stopColor="#ffffff" stopOpacity="0.5" />
+            <stop offset="58%" stopColor="#ffffff" stopOpacity="0.08" />
             <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
           </linearGradient>
 
@@ -281,7 +281,7 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
 
             {/* Holographic Iridescent Sheen Layers / 镭射流光与虹彩视差蒙版层 - Scale 100% (1.0x) */}
             <g clipPath="url(#mobileBadgeCircleClip)">
-              {/* 1. Realistic Holographic Rainbow Texture: color-dodge blend with dynamic parallax shift & rotation */}
+              {/* 1. Realistic Holographic Rainbow Texture: color-dodge blend (Scaled to 200%) */}
               <image
                 href="/holo_texture.png"
                 xlinkHref="/holo_texture.png"
@@ -292,8 +292,8 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
                 preserveAspectRatio="xMidYMid slice"
                 style={{
                   mixBlendMode: 'color-dodge',
-                  opacity: 0.42,
-                  transform: `translate(${renderPos.x * 48}px, ${renderPos.y * 48}px) rotate(${renderPos.x * 45}deg)`,
+                  opacity: 0.275,
+                  transform: `translate(${renderPos.x * 48}px, ${renderPos.y * 48}px) rotate(${renderPos.x * 45}deg) scale(2)`,
                   transformOrigin: '1732.375px 735.429px',
                 }}
               />
@@ -307,7 +307,7 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
                 fill="url(#mobileHoloSheen)"
                 style={{
                   mixBlendMode: 'overlay',
-                  opacity: 0.4,
+                  opacity: 0.25,
                   transform: `translate(${-renderPos.x * 56}px, ${-renderPos.y * 56}px) rotate(${45 + renderPos.y * 35}deg)`,
                   transformOrigin: '1732.375px 735.429px',
                 }}

@@ -132,7 +132,7 @@ export const PcHeroFrame: React.FC<PcHeroFrameProps> = ({
 
           {/* Holographic Iridescent Sheen Layers / 镭射流光与虹彩高光层 */}
           <g clipPath="url(#badgeCircleClip)">
-            {/* 1. Realistic Holographic Texture: color-dodge blend */}
+            {/* 1. Realistic Holographic Texture: color-dodge blend (Scaled to 200%) */}
             <image
               href="/holo_texture.png"
               xlinkHref="/holo_texture.png"
@@ -144,7 +144,7 @@ export const PcHeroFrame: React.FC<PcHeroFrameProps> = ({
               style={{
                 mixBlendMode: 'color-dodge',
                 opacity: 0.275,
-                transform: `translate(${renderPos.x * 85}px, ${renderPos.y * 85}px) rotate(${renderPos.x * 55}deg)`,
+                transform: `translate(${renderPos.x * 85}px, ${renderPos.y * 85}px) rotate(${renderPos.x * 55}deg) scale(2)`,
                 transformOrigin: '1770.452px 773.423px',
               }}
             />
