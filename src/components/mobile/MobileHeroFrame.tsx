@@ -279,41 +279,39 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
               transform="translate(1683.654 686.814)"
             />
 
-            {/* Holographic Iridescent Sheen Layers / 镭射流光与虹彩视差蒙版层 - Scaled +20% */}
+            {/* Holographic Iridescent Sheen Layers / 镭射流光与虹彩视差蒙版层 - Scale 100% (1.0x) */}
             <g clipPath="url(#mobileBadgeCircleClip)">
-              <g transform="translate(1732.375 735.429) scale(1.2) translate(-1732.375 -735.429)">
-                {/* 1. Realistic Holographic Rainbow Texture: color-dodge blend with dynamic parallax shift & rotation */}
-                <image
-                  href="/holo_texture.png"
-                  xlinkHref="/holo_texture.png"
-                  x={1683.654 - 50}
-                  y={686.814 - 50}
-                  width={97.301 + 100}
-                  height={97.196 + 100}
-                  preserveAspectRatio="xMidYMid slice"
-                  style={{
-                    mixBlendMode: 'color-dodge',
-                    opacity: 0.42,
-                    transform: `translate(${renderPos.x * 48}px, ${renderPos.y * 48}px) rotate(${renderPos.x * 45}deg)`,
-                    transformOrigin: '1732.375px 735.429px',
-                  }}
-                />
+              {/* 1. Realistic Holographic Rainbow Texture: color-dodge blend with dynamic parallax shift & rotation */}
+              <image
+                href="/holo_texture.png"
+                xlinkHref="/holo_texture.png"
+                x={1683.654 - 50}
+                y={686.814 - 50}
+                width={97.301 + 100}
+                height={97.196 + 100}
+                preserveAspectRatio="xMidYMid slice"
+                style={{
+                  mixBlendMode: 'color-dodge',
+                  opacity: 0.42,
+                  transform: `translate(${renderPos.x * 48}px, ${renderPos.y * 48}px) rotate(${renderPos.x * 45}deg)`,
+                  transformOrigin: '1732.375px 735.429px',
+                }}
+              />
 
-                {/* 2. Specular Holographic Glare Sheen Line: overlay blend with opposite sweep */}
-                <rect
-                  x={1683.654 - 40}
-                  y={686.814 - 40}
-                  width={97.301 + 80}
-                  height={97.196 + 80}
-                  fill="url(#mobileHoloSheen)"
-                  style={{
-                    mixBlendMode: 'overlay',
-                    opacity: 0.4,
-                    transform: `translate(${-renderPos.x * 56}px, ${-renderPos.y * 56}px) rotate(${45 + renderPos.y * 35}deg)`,
-                    transformOrigin: '1732.375px 735.429px',
-                  }}
-                />
-              </g>
+              {/* 2. Specular Holographic Glare Sheen Line: overlay blend with opposite sweep */}
+              <rect
+                x={1683.654 - 40}
+                y={686.814 - 40}
+                width={97.301 + 80}
+                height={97.196 + 80}
+                fill="url(#mobileHoloSheen)"
+                style={{
+                  mixBlendMode: 'overlay',
+                  opacity: 0.4,
+                  transform: `translate(${-renderPos.x * 56}px, ${-renderPos.y * 56}px) rotate(${45 + renderPos.y * 35}deg)`,
+                  transformOrigin: '1732.375px 735.429px',
+                }}
+              />
             </g>
           </g>
         </g>
