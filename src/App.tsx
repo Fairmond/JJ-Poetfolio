@@ -51,6 +51,7 @@ export default function App() {
         <MobileStage
           onSelectProject={(proj) => setSelectedProject(proj)}
           onOpenContact={(type) => setContactType(type)}
+          isLoading={isLoading}
         />
       ) : (
         <main className="w-full h-screen h-[100dvh] flex items-center justify-center relative overflow-hidden bg-[#eae8e4]">

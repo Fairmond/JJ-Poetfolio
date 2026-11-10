@@ -3,6 +3,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 interface UseParallaxOptions {
   damping?: number;
   enableGyroscope?: boolean;
+  maxDeflection?: number;
+  tiltSensitivity?: number;
 }
 
 export interface ParallaxCoords {
@@ -16,17 +18,32 @@ export interface UseParallaxResult {
   handleMouseMove: (e: React.MouseEvent<HTMLElement>) => void;
   handleMouseLeave: () => void;
   resetTarget: () => void;
+  calibrateOrigin: () => void;
 }
 
 /**
- * High-performance parallax physics hook with inertia / lerp damping loop
- * and cross-platform support (mouse tracking and mobile deviceorientation).
+ * High-performance parallax physics hook with inertia / lerp damping loop,
+ * dynamic post-load gyroscope origin calibration, strict movement clamping,
+ * and cross-platform support.
  */
 export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult {
-  const { damping = 0.11, enableGyroscope = false } = options;
+  const {
+    damping = 0.11,
+    enableGyroscope = false,
+    maxDeflection = 0.8,
+    tiltSensitivity = 24,
+  } = options;
+
   const [renderPos, setRenderPos] = useState<ParallaxCoords>({ x: 0, y: 0 });
   const targetPos = useRef<ParallaxCoords>({ x: 0, y: 0 });
   const currentPos = useRef<ParallaxCoords>({ x: 0, y: 0 });
+
+  // Calibrated origin orientation captured right upon page load
+  const originPos = useRef<{ gamma: number; beta: number } | null>(null);
+
+  const calibrateOrigin = useCallback(() => {
+    originPos.current = null;
+  }, []);
 
   // Inertia / Damping lerp loop
   useEffect(() => {
@@ -75,44 +92,68 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
       if (e.gamma === null || e.beta === null) return;
       hasGyroscope = true;
 
-      // Higher sensitivity: 20 deg tilt reaches full deflection
-      const gamma = Math.min(Math.max(e.gamma, -40), 40);
-      const beta = Math.min(Math.max(e.beta - 45, -40), 40);
+      // 1. Calibrate origin: initial reading right after page load becomes (0, 0)
+      if (originPos.current === null) {
+        originPos.current = {
+          gamma: e.gamma,
+          beta: e.beta,
+        };
+      }
 
+      // 2. Calculate relative tilt offset from the calibrated posture
+      let dGamma = e.gamma - originPos.current.gamma;
+      let dBeta = e.beta - originPos.current.beta;
+
+      // Wrap around handling for [-180, 180]
+      dGamma = ((((dGamma + 180) % 360) + 360) % 360) - 180;
+      dBeta = ((((dBeta + 180) % 360) + 360) % 360) - 180;
+
+      // 3. Sensitivity scale
+      const rawX = dGamma / tiltSensitivity;
+      const rawY = dBeta / tiltSensitivity;
+
+      // 4. Strict clamping (upper limit) to avoid excessive parallax movement
       targetPos.current = {
-        x: gamma / 20,
-        y: beta / 20,
+        x: Math.min(Math.max(rawX, -maxDeflection), maxDeflection),
+        y: Math.min(Math.max(rawY, -maxDeflection), maxDeflection),
       };
     };
 
     const requestDeviceOrientation = () => {
-      // 1. Immediately register orientation listeners so Android, webviews, and previously-granted iOS work instantly without clicking
+      // 1. Immediately register orientation listeners
       window.addEventListener('deviceorientation', handleOrientation, true);
       window.addEventListener('deviceorientationabsolute', handleOrientation, true);
 
-      // 2. If browser requires explicit requestPermission (e.g. iOS Safari 13+), attempt auto-request + bind to first interaction
+      // Listen for window load event to re-calibrate if not yet complete
+      if (document.readyState !== 'complete') {
+        const onLoad = () => {
+          calibrateOrigin();
+        };
+        window.addEventListener('load', onLoad, { once: true });
+      }
+
+      // 2. Permission handling for iOS Safari 13+
       if (
         typeof DeviceOrientationEvent !== 'undefined' &&
         typeof (DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> })
           .requestPermission === 'function'
       ) {
-        const reqPerm = (DeviceOrientationEvent as unknown as { requestPermission: () => Promise<string> });
+        const reqPerm = DeviceOrientationEvent as unknown as { requestPermission: () => Promise<string> };
 
-        // Try calling immediately on mount (works in some webviews, standalone PWAs, and relaxed contexts)
         try {
           reqPerm.requestPermission()
             .then((permissionState: string) => {
               if (permissionState === 'granted') {
                 window.addEventListener('deviceorientation', handleOrientation, true);
                 window.addEventListener('deviceorientationabsolute', handleOrientation, true);
+                calibrateOrigin();
               }
             })
             .catch(() => {});
         } catch {
-          // Expected in standard Safari without user gesture
+          // Expected in standard Safari without gesture
         }
 
-        // Also bind to first interaction on both window and document with capture to trigger permission prompt seamlessly
         const onFirstInteraction = () => {
           try {
             reqPerm.requestPermission()
@@ -120,6 +161,7 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
                 if (permissionState === 'granted') {
                   window.addEventListener('deviceorientation', handleOrientation, true);
                   window.addEventListener('deviceorientationabsolute', handleOrientation, true);
+                  calibrateOrigin();
                 }
               })
               .catch(() => {});
@@ -139,7 +181,7 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
       window.removeEventListener('deviceorientation', handleOrientation, true);
       window.removeEventListener('deviceorientationabsolute', handleOrientation, true);
     };
-  }, [enableGyroscope]);
+  }, [enableGyroscope, maxDeflection, tiltSensitivity, calibrateOrigin]);
 
   return {
     renderPos,
@@ -147,5 +189,6 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
     handleMouseMove,
     handleMouseLeave,
     resetTarget,
+    calibrateOrigin,
   };
 }

@@ -9,19 +9,36 @@ import { MobileDrawerSheet } from './mobile/MobileDrawerSheet';
 interface MobileStageProps {
   onSelectProject: (project: ProjectItem) => void;
   onOpenContact: (type: ContactType) => void;
+  isLoading?: boolean;
 }
 
 export const MobileStage: React.FC<MobileStageProps> = ({
   onSelectProject,
   onOpenContact,
+  isLoading = false,
 }) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
   const [stageWidth, setStageWidth] = useState(MOBILE_STAGE.DEFAULT_WIDTH);
   const [stageHeight, setStageHeight] = useState(MOBILE_STAGE.DEFAULT_HEIGHT);
 
-  // Parallax physics driven strictly by device gyroscope
-  const { renderPos } = useParallax({ damping: 0.13, enableGyroscope: true });
+  // Parallax physics driven strictly by device gyroscope with calibrated origin & clamped bounds
+  const { renderPos, calibrateOrigin } = useParallax({
+    damping: 0.13,
+    enableGyroscope: true,
+    maxDeflection: 0.8,
+    tiltSensitivity: 24,
+  });
+
+  // Re-calibrate gyroscope origin right after web page finishes loading / preloader completes
+  useEffect(() => {
+    if (!isLoading) {
+      const timer = setTimeout(() => {
+        calibrateOrigin();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading, calibrateOrigin]);
 
   // Responsive stage sizing
   useEffect(() => {
