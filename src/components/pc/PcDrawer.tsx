@@ -374,7 +374,7 @@ export const PcDrawer: React.FC<PcDrawerProps> = ({
                             演示视频 · DEMO
                           </div>
                           <a
-                            href="https://livefor.2371402599.workers.dev/"
+                            href="https://livefor.jjdemon.cn"
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => {

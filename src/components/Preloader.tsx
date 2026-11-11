@@ -4,9 +4,16 @@ import { motion, AnimatePresence } from 'motion/react';
 interface PreloaderProps {
   isLoading: boolean;
   progress: number;
+  loadedMB?: string;
+  totalMB?: string;
 }
 
-export const Preloader: React.FC<PreloaderProps> = ({ isLoading, progress }) => {
+export const Preloader: React.FC<PreloaderProps> = ({
+  isLoading,
+  progress,
+  loadedMB,
+  totalMB,
+}) => {
   return (
     <AnimatePresence>
       {isLoading && (
@@ -33,17 +40,24 @@ export const Preloader: React.FC<PreloaderProps> = ({ isLoading, progress }) => 
 
             {/* Minimal Loading Bar & Percentage */}
             <div className="flex flex-col items-center gap-2">
-              <div className="w-36 h-1 bg-[#d8d2c4] rounded-full overflow-hidden">
+              <div className="w-40 h-1.5 bg-[#d8d2c4] rounded-full overflow-hidden">
                 <motion.div
                   className="h-full bg-[#292727] rounded-full"
                   initial={{ width: 0 }}
                   animate={{ width: `${progress}%` }}
-                  transition={{ ease: 'easeOut', duration: 0.2 }}
+                  transition={{ ease: 'easeOut', duration: 0.15 }}
                 />
               </div>
-              <span className="text-[12px] font-sans tracking-widest text-[#7a7474]">
-                LOADING {progress}%
-              </span>
+              <div className="flex flex-col items-center gap-0.5">
+                <span className="text-[12px] font-sans tracking-widest text-[#7a7474] font-medium">
+                  LOADING {progress}%
+                </span>
+                {totalMB && parseFloat(totalMB) > 0 && (
+                  <span className="text-[10px] font-mono text-[#a19c9c] tracking-wider">
+                    {loadedMB} MB / {totalMB} MB
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </motion.div>

@@ -295,7 +295,7 @@ export const MobileDrawerSheet: React.FC<MobileDrawerSheetProps> = ({
 
               <div className="flex items-center gap-2 shrink-0">
                 <a
-                  href="https://livefor.2371402599.workers.dev/"
+                  href="https://livefor.jjdemon.cn"
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}

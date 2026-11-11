@@ -18,7 +18,7 @@ export const PROJECTS_DATA: ProjectItem[] = [
       '数字化全端落地：响应式 Web 官方门户全流程构建、微交互与动效细节实现'
     ],
     videoUrl: '/demo_video.mp4',
-    websiteUrl: 'https://livefor.2371402599.workers.dev/'
+    websiteUrl: 'https://livefor.jjdemon.cn'
   },
   {
     id: 'coach-app',
