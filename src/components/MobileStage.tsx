@@ -23,22 +23,13 @@ export const MobileStage: React.FC<MobileStageProps> = ({
   const [stageHeight, setStageHeight] = useState(MOBILE_STAGE.DEFAULT_HEIGHT);
 
   // Parallax physics driven strictly by device gyroscope with calibrated origin & clamped bounds
-  const { renderPos, calibrateOrigin } = useParallax({
+  const { renderPos } = useParallax({
     damping: 0.13,
     enableGyroscope: true,
-    maxDeflection: 0.8,
-    tiltSensitivity: 24,
+    maxDeflection: 0.85,
+    tiltSensitivity: 20,
+    isLoaded: !isLoading,
   });
-
-  // Re-calibrate gyroscope origin right after web page finishes loading / preloader completes
-  useEffect(() => {
-    if (!isLoading) {
-      const timer = setTimeout(() => {
-        calibrateOrigin();
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [isLoading, calibrateOrigin]);
 
   // Responsive stage sizing
   useEffect(() => {
