@@ -5,6 +5,7 @@ import { PROJECTS_DATA } from '../../data/projectsData';
 import { RealCalculatedMosaic } from '../RealCalculatedMosaic';
 import { SafeImage } from '../SafeImage';
 import { ArsenalStorageBox } from '../ArsenalStorageBox';
+import { ScrollBottomInnerShadow } from '../ScrollBottomInnerShadow';
 
 interface MobileDrawerSheetProps {
   isDrawerOpen: boolean;
@@ -158,7 +159,7 @@ export const MobileDrawerSheet: React.FC<MobileDrawerSheetProps> = ({
         onPointerDown={(e) => dragControls.start(e)}
         onClick={toggleDrawer}
         className="absolute left-1/2 -translate-x-1/2 top-[2.2%] w-[70%] z-30 cursor-grab active:cursor-grabbing flex items-center justify-between px-5 sm:px-6 focus:outline-none touch-none"
-        style={{ height: `${32 * scale}px` }}
+        style={{ height: `${32 * (drawerHeight / 647.218)}px` }}
       >
         <div className="relative z-10 flex items-baseline gap-2 pt-0.5 pointer-events-none">
           <span className="text-[15px] font-bold text-[#292727] tracking-tight">
@@ -181,15 +182,20 @@ export const MobileDrawerSheet: React.FC<MobileDrawerSheetProps> = ({
         </motion.div>
       </div>
 
-      {/* Scrollable Content Container */}
+      {/* Scrollable Content Viewport Wrapper (with bottom inner shadow) */}
       <div
-        className="absolute left-[6.2%] right-[6.2%] top-[9.5%] px-3.5 pt-4 pb-20 flex flex-col gap-5 overflow-y-auto overflow-x-hidden no-scrollbar touch-pan-y overscroll-contain z-20 box-border select-text"
+        className="absolute left-[6.2%] right-[6.2%] top-[9.5%] z-20 overflow-hidden rounded-b-lg"
         style={{
           bottom: `${Math.max(marginBottom < 0 ? -marginBottom * 0.1 : 24, 20)}px`,
           maxHeight: `${openOffset - 40}px`,
-          WebkitOverflowScrolling: 'touch',
         }}
       >
+        <div
+          className="w-full h-full px-3.5 pt-4 pb-20 flex flex-col gap-5 overflow-y-auto overflow-x-hidden no-scrollbar touch-pan-y overscroll-contain box-border select-text"
+          style={{
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
         {/* Bio & Vision Section */}
         <div className="w-full min-w-0 flex flex-col gap-3 break-words">
           <h2 className="w-full text-[#1a1919] select-text">
@@ -406,6 +412,10 @@ export const MobileDrawerSheet: React.FC<MobileDrawerSheetProps> = ({
 
           <ArsenalStorageBox />
         </div>
+        </div>
+
+        {/* Bottom Inner Shadow at the bottom edge of the internal scroll area */}
+        <ScrollBottomInnerShadow />
       </div>
 
       {/* Seamless downward extension ensuring no gaps or edges at the bottom */}

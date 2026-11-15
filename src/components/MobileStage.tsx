@@ -63,8 +63,11 @@ export const MobileStage: React.FC<MobileStageProps> = ({
   // Strict dynamic drawer layout calculations: +18px peek ensures "关于我 About me" and bounce arrow are fully visible above mobile navigation bars
   const drawerWidth = Math.max(stageWidth - 10, 280);
   const scale = drawerWidth / MOBILE_STAGE.DESIGN_W;
-  const drawerHeight = drawerWidth * (MOBILE_STAGE.DESIGN_H / MOBILE_STAGE.DESIGN_W);
-  const peekHeight = (MOBILE_STAGE.PEEK_HANDLE_HEIGHT + 18) * scale;
+  const idealDrawerHeight = drawerWidth * (MOBILE_STAGE.DESIGN_H / MOBILE_STAGE.DESIGN_W);
+  const maxDrawerHeight = Math.max(stageHeight - 64, 360);
+  const drawerHeight = Math.min(idealDrawerHeight, maxDrawerHeight);
+  const scaleY = drawerHeight / MOBILE_STAGE.DESIGN_H;
+  const peekHeight = (MOBILE_STAGE.PEEK_HANDLE_HEIGHT + 18) * scaleY;
   const maxAllowedOffset = Math.max(stageHeight - 64 - peekHeight, 200);
   const openOffset = Math.min(drawerHeight - peekHeight, maxAllowedOffset);
   const marginBottom = -(drawerHeight - peekHeight);
