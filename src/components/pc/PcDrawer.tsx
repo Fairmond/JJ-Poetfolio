@@ -5,6 +5,7 @@ import { PROJECTS_DATA } from '../../data/projectsData';
 import { RealCalculatedMosaic } from '../RealCalculatedMosaic';
 import { ArsenalStorageBox } from '../ArsenalStorageBox';
 import { BioAutoScrollList } from '../BioAutoScrollList';
+import { MEDIA_ASSETS } from '../../constants/assets';
 
 interface PcDrawerProps {
   isDrawerOpen: boolean;
@@ -360,8 +361,8 @@ export const PcDrawer: React.FC<PcDrawerProps> = ({
                           className="relative w-full rounded-xl overflow-hidden bg-black aspect-video shadow-xl border border-[#dfdad0] group/video"
                         >
                           <video
-                            src="/demo_video.mp4"
-                            poster="/demo_video_poster.jpg"
+                            src={MEDIA_ASSETS.demoVideo}
+                            poster={MEDIA_ASSETS.demoVideoPoster}
                             autoPlay
                             loop
                             muted

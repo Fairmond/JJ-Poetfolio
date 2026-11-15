@@ -1,5 +1,6 @@
 import React from 'react';
 import { ParallaxCoords } from '../../hooks/useParallax';
+import { HERO_ASSETS } from '../../constants/assets';
 
 interface MobileHeroFrameProps {
   renderPos: ParallaxCoords;
@@ -120,8 +121,8 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
             viewBox="0 16.037 693.541 197.835"
           >
             <image
-              href="/mobile_bg_torn.png"
-              xlinkHref="/mobile_bg_torn.png"
+              href={HERO_ASSETS.bgTorn}
+              xlinkHref={HERO_ASSETS.bgTorn}
               width={749.761}
               height={213.872}
               preserveAspectRatio="none"
@@ -133,8 +134,8 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
         <g transform={`translate(${renderPos.x * 12} ${-49 + renderPos.y * 12})`}>
           <g transform="rotate(-40.0 363.905 379.456)">
             <image
-              href="/mobile_bg_torn.png"
-              xlinkHref="/mobile_bg_torn.png"
+              href={HERO_ASSETS.bgTorn}
+              xlinkHref={HERO_ASSETS.bgTorn}
               x={-120 - 745}
               y={-20}
               width={750}
@@ -142,8 +143,8 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
               preserveAspectRatio="none"
             />
             <image
-              href="/mobile_bg_torn.png"
-              xlinkHref="/mobile_bg_torn.png"
+              href={HERO_ASSETS.bgTorn}
+              xlinkHref={HERO_ASSETS.bgTorn}
               x={-120}
               y={-20}
               width={750}
@@ -151,8 +152,8 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
               preserveAspectRatio="none"
             />
             <image
-              href="/mobile_bg_torn.png"
-              xlinkHref="/mobile_bg_torn.png"
+              href={HERO_ASSETS.bgTorn}
+              xlinkHref={HERO_ASSETS.bgTorn}
               x={-120 + 745}
               y={-20}
               width={750}
@@ -212,8 +213,8 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
               transform="translate(1100.563 269.994)"
             >
               <image
-                href="/mobile_portrait_bottom.png"
-                xlinkHref="/mobile_portrait_bottom.png"
+                href={HERO_ASSETS.portraitBottom}
+                xlinkHref={HERO_ASSETS.portraitBottom}
                 width={306}
                 height={408}
                 transform={`translate(${-12.563 - renderPos.x * 14} ${-57.956 - renderPos.y * 14}) translate(144.4 150) scale(1.2) translate(-144.4 -150)`}
@@ -222,8 +223,8 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
 
             {/* Layer 2: 3D Frame & Outer Shadow (Unchanged) */}
             <image
-              href="/mobile_frame.png"
-              xlinkHref="/mobile_frame.png"
+              href={HERO_ASSETS.frame}
+              xlinkHref={HERO_ASSETS.frame}
               width={373}
               height={463}
               transform="translate(1040 170.038)"
@@ -250,8 +251,8 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
               transform="translate(1100.485 216.921)"
             >
               <image
-                href="/mobile_portrait_top.png"
-                xlinkHref="/mobile_portrait_top.png"
+                href={HERO_ASSETS.portraitTop}
+                xlinkHref={HERO_ASSETS.portraitTop}
                 width={287.05}
                 height={393.62}
                 transform={`translate(${7.925 - renderPos.x * 18} ${12.392 - renderPos.y * 18})`}
@@ -272,8 +273,8 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
               transform="translate(1683.884 686.938)"
             />
             <image
-              href="/mobile_avatar_badge.png"
-              xlinkHref="/mobile_avatar_badge.png"
+              href={HERO_ASSETS.avatarBadge}
+              xlinkHref={HERO_ASSETS.avatarBadge}
               width={97.301}
               height={97.196}
               transform="translate(1683.654 686.814)"
@@ -283,8 +284,8 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
             <g clipPath="url(#mobileBadgeCircleClip)">
               {/* 1. Realistic Holographic Rainbow Texture: color-dodge blend (Scaled to 200%) */}
               <image
-                href="/holo_texture.png"
-                xlinkHref="/holo_texture.png"
+                href={HERO_ASSETS.holoTexture}
+                xlinkHref={HERO_ASSETS.holoTexture}
                 x={1683.654 - 50}
                 y={686.814 - 50}
                 width={97.301 + 100}

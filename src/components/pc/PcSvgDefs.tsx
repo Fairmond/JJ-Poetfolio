@@ -1,4 +1,5 @@
 import React from 'react';
+import { HERO_ASSETS } from '../../constants/assets';
 
 interface PcSvgDefsProps {
   isDrawerOpen: boolean;
@@ -113,8 +114,8 @@ export const PcSvgDefs: React.FC<PcSvgDefsProps> = ({ isDrawerOpen }) => {
       </clipPath>
       <pattern id="b" width={1} height={1} viewBox="0 29.169 1263.572 359.831">
         <image
-          xlinkHref="/pc_bg_torn.png"
-          href="/pc_bg_torn.png"
+          xlinkHref={HERO_ASSETS.bgTorn}
+          href={HERO_ASSETS.bgTorn}
           width={1366}
           height={389}
           preserveAspectRatio="none"

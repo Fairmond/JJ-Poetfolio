@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CORE_PRELOAD_ASSETS } from '../constants/assets';
+import { CORE_PRELOAD_ASSETS, HERO_ASSETS } from '../constants/assets';
 
 interface UseAssetPreloadOptions {
   assets?: readonly string[];
@@ -17,17 +17,12 @@ export interface UseAssetPreloadResult {
 const FALLBACK_SIZES: Record<string, number> = {
   '/fonts/FZFYSJW.TTF': 5163704,
   '/fonts/COPRGTB.TTF': 61552,
-  '/mobile_portrait_bottom.png': 1635036,
-  '/pc_portrait_bottom.png': 1635036,
-  '/mobile_portrait_top.png': 1440511,
-  '/pc_portrait_top.png': 1440511,
-  '/mobile_avatar_badge.png': 1022176,
-  '/pc_avatar_badge.png': 1022176,
-  '/mobile_bg_torn.png': 710697,
-  '/pc_bg_torn.png': 710697,
-  '/holo_texture.png': 732670,
-  '/mobile_frame.png': 206992,
-  '/pc_frame.png': 206992,
+  [HERO_ASSETS.portraitBottom]: 1635036,
+  [HERO_ASSETS.portraitTop]: 1440511,
+  [HERO_ASSETS.avatarBadge]: 1022176,
+  [HERO_ASSETS.holoTexture]: 732670,
+  [HERO_ASSETS.bgTorn]: 710697,
+  [HERO_ASSETS.frame]: 206992,
   '/mobile_header_logo.png': 5791,
   '/pc_card_image.png': 5791,
   '/pc_logo.png': 36000,

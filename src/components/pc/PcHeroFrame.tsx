@@ -1,5 +1,6 @@
 import React from 'react';
 import { ParallaxCoords } from '../../hooks/useParallax';
+import { HERO_ASSETS } from '../../constants/assets';
 
 interface PcHeroFrameProps {
   frameShiftX: number;
@@ -43,8 +44,8 @@ export const PcHeroFrame: React.FC<PcHeroFrameProps> = ({
             >
               <g transform="translate(1134 254)">
                 <image
-                  xlinkHref="/pc_portrait_bottom.png"
-                  href="/pc_portrait_bottom.png"
+                  xlinkHref={HERO_ASSETS.portraitBottom}
+                  href={HERO_ASSETS.portraitBottom}
                   width={610}
                   height={813}
                   className="transition-transform duration-500"
@@ -59,8 +60,8 @@ export const PcHeroFrame: React.FC<PcHeroFrameProps> = ({
 
           {/* Polaroid Frame / Outer Texture (Moves with frame/lower layer) */}
           <image
-            xlinkHref="/pc_frame.png"
-            href="/pc_frame.png"
+            xlinkHref={HERO_ASSETS.frame}
+            href={HERO_ASSETS.frame}
             width={740}
             height={918}
             transform="translate(1040 170)"
@@ -94,8 +95,8 @@ export const PcHeroFrame: React.FC<PcHeroFrameProps> = ({
               }}
             >
               <image
-                xlinkHref="/pc_portrait_top.png"
-                href="/pc_portrait_top.png"
+                xlinkHref={HERO_ASSETS.portraitTop}
+                href={HERO_ASSETS.portraitTop}
                 width={568.508}
                 height={779.984}
                 transform="translate(1175.488 287.46)"
@@ -123,8 +124,8 @@ export const PcHeroFrame: React.FC<PcHeroFrameProps> = ({
             transform="translate(1684.063 687.034)"
           />
           <image
-            xlinkHref="/pc_avatar_badge.png"
-            href="/pc_avatar_badge.png"
+            xlinkHref={HERO_ASSETS.avatarBadge}
+            href={HERO_ASSETS.avatarBadge}
             width={173.348}
             height={173.162}
             transform="translate(1683.654 686.814)"
@@ -134,8 +135,8 @@ export const PcHeroFrame: React.FC<PcHeroFrameProps> = ({
           <g clipPath="url(#badgeCircleClip)">
             {/* 1. Realistic Holographic Texture: color-dodge blend (Scaled to 200%) */}
             <image
-              href="/holo_texture.png"
-              xlinkHref="/holo_texture.png"
+              href={HERO_ASSETS.holoTexture}
+              xlinkHref={HERO_ASSETS.holoTexture}
               x={1683.654 - 90}
               y={686.814 - 90}
               width={173.348 + 180}

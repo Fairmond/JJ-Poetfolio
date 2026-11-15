@@ -1,4 +1,5 @@
 import { ProjectItem, ContactInfo } from '../types';
+import { MEDIA_ASSETS } from '../constants/assets';
 
 export const PROJECTS_DATA: ProjectItem[] = [
   {
@@ -17,7 +18,7 @@ export const PROJECTS_DATA: ProjectItem[] = [
       '体验与交互设计：跨端 UX 用户体验旅程规划、高保真 UI 界面系统与响应式组件库搭建',
       '数字化全端落地：响应式 Web 官方门户全流程构建、微交互与动效细节实现'
     ],
-    videoUrl: '/demo_video.mp4',
+    videoUrl: MEDIA_ASSETS.demoVideo,
     websiteUrl: 'https://livefor.jjdemon.cn'
   },
   {
@@ -35,7 +36,7 @@ export const PROJECTS_DATA: ProjectItem[] = [
       '全链路用户体验旅程地图 (CJM) 与服务蓝图推演',
       '跨终端组件库 (Design System) 与数据看板交互体验'
     ],
-    videoUrl: '/demo_video.mp4'
+    videoUrl: MEDIA_ASSETS.demoVideo
   },
   {
     id: 'ai-agent-lab',

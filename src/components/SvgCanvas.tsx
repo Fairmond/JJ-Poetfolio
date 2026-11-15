@@ -7,6 +7,7 @@ import { PcHeader } from './pc/PcHeader';
 import { PcSvgDefs } from './pc/PcSvgDefs';
 import { PcHeroFrame } from './pc/PcHeroFrame';
 import { PcDrawer } from './pc/PcDrawer';
+import { HERO_ASSETS } from '../constants/assets';
 
 interface SvgCanvasProps {
   isDrawerOpen: boolean;
@@ -109,8 +110,8 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
                 opacity={isDrawerOpen ? 0.3 : 1}
               >
                 <image
-                  href="/pc_bg_torn.png"
-                  xlinkHref="/pc_bg_torn.png"
+                  href={HERO_ASSETS.bgTorn}
+                  xlinkHref={HERO_ASSETS.bgTorn}
                   x={stageMetrics.tornCenterX - 750 - 1490}
                   y={329}
                   width={1500}
@@ -118,8 +119,8 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
                   preserveAspectRatio="none"
                 />
                 <image
-                  href="/pc_bg_torn.png"
-                  xlinkHref="/pc_bg_torn.png"
+                  href={HERO_ASSETS.bgTorn}
+                  xlinkHref={HERO_ASSETS.bgTorn}
                   x={stageMetrics.tornCenterX - 750}
                   y={329}
                   width={1500}
@@ -127,8 +128,8 @@ export const SvgCanvas: React.FC<SvgCanvasProps> = ({
                   preserveAspectRatio="none"
                 />
                 <image
-                  href="/pc_bg_torn.png"
-                  xlinkHref="/pc_bg_torn.png"
+                  href={HERO_ASSETS.bgTorn}
+                  xlinkHref={HERO_ASSETS.bgTorn}
                   x={stageMetrics.tornCenterX - 750 + 1490}
                   y={329}
                   width={1500}

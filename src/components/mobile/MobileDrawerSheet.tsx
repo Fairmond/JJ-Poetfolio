@@ -6,6 +6,7 @@ import { RealCalculatedMosaic } from '../RealCalculatedMosaic';
 import { SafeImage } from '../SafeImage';
 import { ArsenalStorageBox } from '../ArsenalStorageBox';
 import { ScrollBottomInnerShadow } from '../ScrollBottomInnerShadow';
+import { MEDIA_ASSETS } from '../../constants/assets';
 
 interface MobileDrawerSheetProps {
   isDrawerOpen: boolean;
@@ -323,8 +324,8 @@ export const MobileDrawerSheet: React.FC<MobileDrawerSheetProps> = ({
 
             <div className="w-full mt-1 rounded-lg overflow-hidden bg-black/90 aspect-video relative border border-neutral-200/60 shadow-inner">
               <video
-                src="/demo_video.mp4"
-                poster="/demo_video_poster.jpg"
+                src={MEDIA_ASSETS.demoVideo}
+                poster={MEDIA_ASSETS.demoVideoPoster}
                 autoPlay
                 loop
                 muted
