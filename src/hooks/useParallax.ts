@@ -5,6 +5,7 @@ interface UseParallaxOptions {
   enableGyroscope?: boolean;
   maxDeflection?: number;
   tiltSensitivity?: number;
+  mouseActiveRatio?: number;
   isLoaded?: boolean;
 }
 
@@ -24,15 +25,28 @@ export interface UseParallaxResult {
 
 /**
  * High-performance parallax physics hook with inertia / lerp damping loop,
- * dynamic post-load gyroscope origin calibration, strict movement clamping,
+ * dynamic post-load gyroscope origin calibration, circular radial movement clamping,
  * and robust cross-platform device orientation support.
  */
+function clampToCircle(x: number, y: number, radius: number): ParallaxCoords {
+  const dist = Math.hypot(x, y);
+  if (dist > radius && dist > 0) {
+    const scale = radius / dist;
+    return {
+      x: x * scale,
+      y: y * scale,
+    };
+  }
+  return { x, y };
+}
+
 export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult {
   const {
     damping = 0.11,
     enableGyroscope = false,
-    maxDeflection = 0.85,
+    maxDeflection = 1,
     tiltSensitivity = 20,
+    mouseActiveRatio = 0.6,
     isLoaded = true,
   } = options;
 
@@ -75,15 +89,18 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
     return () => cancelAnimationFrame(animId);
   }, [damping]);
 
-  // Mouse move handler (PC)
-  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
-    targetPos.current = {
-      x: ((e.clientX - rect.left) / rect.width - 0.5) * 2,
-      y: ((e.clientY - rect.top) / rect.height - 0.5) * 2,
-    };
-  }, []);
+  // Mouse move handler (PC) - reaches full radius within center 60% area, angle-only beyond
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent<HTMLElement>) => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      const safeRatio = mouseActiveRatio > 0 ? mouseActiveRatio : 1;
+      const rawX = (((e.clientX - rect.left) / rect.width - 0.5) * 2) / safeRatio;
+      const rawY = (((e.clientY - rect.top) / rect.height - 0.5) * 2) / safeRatio;
+      targetPos.current = clampToCircle(rawX, rawY, maxDeflection);
+    },
+    [maxDeflection, mouseActiveRatio],
+  );
 
   const handleMouseLeave = useCallback(() => {
     targetPos.current = { x: 0, y: 0 };
@@ -93,7 +110,7 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
     targetPos.current = { x: 0, y: 0 };
   }, []);
 
-  // Gyroscope / Device orientation (Mobile)
+  // Gyroscope / Device orientation (Mobile) - clamped within circular radial area
   useEffect(() => {
     if (!enableGyroscope || typeof window === 'undefined') return;
 
@@ -115,14 +132,11 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
       const deltaX = g - originGamma.current;
       const deltaY = b - originBeta.current;
 
-      // Map to normalized range with sensitivity and strictly enforce upper limit clamp
+      // Map to normalized range with sensitivity and strictly clamp within circle radius
       const rawX = deltaX / tiltSensitivity;
       const rawY = deltaY / tiltSensitivity;
 
-      targetPos.current = {
-        x: Math.min(Math.max(rawX, -maxDeflection), maxDeflection),
-        y: Math.min(Math.max(rawY, -maxDeflection), maxDeflection),
-      };
+      targetPos.current = clampToCircle(rawX, rawY, maxDeflection);
     };
 
     // Immediately register standard deviceorientation listener (Android, WeChat, Webviews)

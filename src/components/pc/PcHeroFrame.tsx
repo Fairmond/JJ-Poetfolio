@@ -26,7 +26,7 @@ export const PcHeroFrame: React.FC<PcHeroFrameProps> = ({
       {/* Layer 1: Frame Stack (Lower Parallax Layer: Same Direction as Lower Layer / 与下层撕纸纹理同向) */}
       <g
         style={{
-          transform: `translate3d(${renderPos.x * 36}px, ${renderPos.y * 36}px, 0)`,
+          transform: `translate3d(${renderPos.x * 28.8}px, ${renderPos.y * 28.8}px, 0)`,
         }}
       >
         <g
@@ -39,7 +39,7 @@ export const PcHeroFrame: React.FC<PcHeroFrameProps> = ({
           <g clipPath="url(#c)">
             <g
               style={{
-                transform: `translate3d(${-renderPos.x * 36}px, ${-renderPos.y * 36}px, 0)`,
+                transform: `translate3d(${-renderPos.x * 28.8}px, ${-renderPos.y * 28.8}px, 0)`,
               }}
             >
               <g transform="translate(1134 254)">
@@ -70,7 +70,7 @@ export const PcHeroFrame: React.FC<PcHeroFrameProps> = ({
           {/* Tape Overlay (Rounded Rectangle) - Keeps fixed relative to canvas via counter-parallax */}
           <g
             style={{
-              transform: `translate3d(${-renderPos.x * 36}px, ${-renderPos.y * 36}px, 0)`,
+              transform: `translate3d(${-renderPos.x * 28.8}px, ${-renderPos.y * 28.8}px, 0)`,
             }}
           >
             <rect
@@ -91,7 +91,7 @@ export const PcHeroFrame: React.FC<PcHeroFrameProps> = ({
           <g clipPath="url(#d)">
             <g
               style={{
-                transform: `translate3d(${-renderPos.x * 36}px, ${-renderPos.y * 36}px, 0)`,
+                transform: `translate3d(${-renderPos.x * 28.8}px, ${-renderPos.y * 28.8}px, 0)`,
               }}
             >
               <image
