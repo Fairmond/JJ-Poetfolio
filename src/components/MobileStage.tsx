@@ -22,8 +22,8 @@ export const MobileStage: React.FC<MobileStageProps> = ({
   const [stageWidth, setStageWidth] = useState(MOBILE_STAGE.DEFAULT_WIDTH);
   const [stageHeight, setStageHeight] = useState(MOBILE_STAGE.DEFAULT_HEIGHT);
 
-  // Parallax physics driven strictly by device gyroscope with calibrated origin & clamped bounds
-  const { renderPos } = useParallax({
+  // Parallax physics driven by device gyroscope (+ TEMPORARY mouse handlers for desktop preview)
+  const { renderPos, handleMouseMove, handleMouseLeave } = useParallax({
     damping: 0.13,
     enableGyroscope: true,
     maxDeflection: 0.85,
@@ -83,6 +83,8 @@ export const MobileStage: React.FC<MobileStageProps> = ({
     >
       <div
         ref={stageRef}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
         className="w-full max-w-[640px] h-full flex-1 min-h-0 relative flex flex-col items-center justify-between overflow-hidden"
       >
         {/* Top Fixed Header */}

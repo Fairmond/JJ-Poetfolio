@@ -204,7 +204,7 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
         {/* 3D HERO FRAME PACKAGE - Outer frame scale remains 0.966 */}
         <g transform="translate(0 -16) translate(196.5 375) scale(0.966) translate(-196.5 -375)">
           <g
-            transform={`translate(${-1051 + renderPos.x * 32} ${-21.038 + renderPos.y * 32})`}
+            transform={`translate(${-1051 + renderPos.x * 25.85} ${-21.038 + renderPos.y * 25.85})`}
             className="group select-none pointer-events-auto"
           >
             {/* Layer 1: Bottom Portrait Studio Background - Scaled +20% */}
@@ -217,7 +217,7 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
                 xlinkHref={HERO_ASSETS.portraitBottom}
                 width={306}
                 height={408}
-                transform={`translate(${-12.563 - renderPos.x * 22} ${-57.956 - renderPos.y * 22}) translate(144.4 150) scale(1.2) translate(-144.4 -150)`}
+                transform={`translate(${-12.563 - renderPos.x * 17.8} ${-57.956 - renderPos.y * 17.8}) translate(144.4 150) scale(1.2) translate(-144.4 -150)`}
               />
             </g>
 
@@ -255,7 +255,7 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
                 xlinkHref={HERO_ASSETS.portraitTop}
                 width={287.05}
                 height={393.62}
-                transform={`translate(${7.925 - renderPos.x * 26} ${12.392 - renderPos.y * 26})`}
+                transform={`translate(${7.925 - renderPos.x * 21} ${12.392 - renderPos.y * 21})`}
               />
             </g>
           </g>
