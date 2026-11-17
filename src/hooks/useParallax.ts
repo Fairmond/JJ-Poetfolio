@@ -181,12 +181,12 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
     };
 
     const handleStandardOrientation = (e: DeviceOrientationEvent) => {
-      const { gamma: g, beta: b, alpha: a } = e;
+      const { gamma: g, beta: b } = e;
       if (typeof g !== 'number' || typeof b !== 'number' || Number.isNaN(g) || Number.isNaN(b)) {
         return;
       }
-      // Ignore uninitialized dummy (0, 0, 0) stream before any real reading arrives so fallbacks can engage
-      if (!hasStandardOrientation.current && g === 0 && b === 0 && (a === null || a === 0)) {
+      // Ignore stubbed/uninitialized (beta=0, gamma=0) events before any real tilt arrives so fallbacks can engage
+      if (!hasStandardOrientation.current && g === 0 && b === 0) {
         return;
       }
       hasStandardOrientation.current = true;
@@ -197,11 +197,11 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
     const handleAbsoluteOrientation = (e: Event) => {
       if (hasStandardOrientation.current) return;
       const oe = e as DeviceOrientationEvent;
-      const { gamma: g, beta: b, alpha: a } = oe;
+      const { gamma: g, beta: b } = oe;
       if (typeof g !== 'number' || typeof b !== 'number' || Number.isNaN(g) || Number.isNaN(b)) {
         return;
       }
-      if (!hasAnyOrientation.current && g === 0 && b === 0 && (a === null || a === 0)) {
+      if (!hasAnyOrientation.current && g === 0 && b === 0) {
         return;
       }
       hasAnyOrientation.current = true;
@@ -211,46 +211,163 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
     const isIOS =
       /iPad|iPhone|iPod/.test(navigator.userAgent) ||
       (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    let hasMotionGravity = false;
+    let rotAngleX = 0;
+    let rotAngleY = 0;
+
     const handleDeviceMotion = (e: DeviceMotionEvent) => {
       if (hasAnyOrientation.current) return;
-      const acc = e.accelerationIncludingGravity;
-      if (!acc) return;
-      const ax = acc.x;
-      const ay = acc.y;
-      const az = acc.z;
-      if (
-        typeof ax !== 'number' ||
-        typeof ay !== 'number' ||
-        typeof az !== 'number' ||
-        Number.isNaN(ax) ||
-        Number.isNaN(ay) ||
-        Number.isNaN(az)
-      ) {
-        return;
-      }
-      const gLen = Math.hypot(ax, ay, az);
-      if (gLen < 1) return;
 
-      const sign = isIOS ? -1 : 1;
-      const rollDeg = Math.atan2(ax * sign, Math.hypot(ay, az)) * (180 / Math.PI);
-      const pitchDeg = Math.atan2(-ay * sign, -az * sign) * (180 / Math.PI);
-      updateTargetFromAngles(rollDeg, pitchDeg);
+      const acc = e.accelerationIncludingGravity;
+      if (
+        acc &&
+        typeof acc.x === 'number' &&
+        typeof acc.y === 'number' &&
+        typeof acc.z === 'number' &&
+        !Number.isNaN(acc.x) &&
+        !Number.isNaN(acc.y) &&
+        !Number.isNaN(acc.z)
+      ) {
+        const gLen = Math.hypot(acc.x, acc.y, acc.z);
+        if (gLen >= 1) {
+          hasMotionGravity = true;
+          const sign = isIOS ? -1 : 1;
+          const rollDeg = Math.atan2(acc.x * sign, Math.hypot(acc.y, acc.z)) * (180 / Math.PI);
+          const pitchDeg = Math.atan2(-acc.y * sign, -acc.z * sign) * (180 / Math.PI);
+          updateTargetFromAngles(rollDeg, pitchDeg);
+          return;
+        }
+      }
+
+      // Secondary devicemotion fallback: integrate rotationRate (angular velocity) when gravity vector is unavailable
+      if (!hasMotionGravity && e.rotationRate) {
+        const { beta: rb, gamma: rg } = e.rotationRate;
+        if (typeof rb === 'number' && typeof rg === 'number' && !Number.isNaN(rb) && !Number.isNaN(rg)) {
+          if (rb === 0 && rg === 0 && rotAngleX === 0 && rotAngleY === 0) return;
+          const rawInterval = e.interval || 16;
+          const dtSec = rawInterval > 1 ? Math.min(rawInterval / 1000, 0.05) : Math.min(rawInterval, 0.05);
+          rotAngleX = rotAngleX * 0.985 + rg * dtSec;
+          rotAngleY = rotAngleY * 0.985 + rb * dtSec;
+          updateTargetFromAngles(rotAngleX, rotAngleY);
+        }
+      }
+    };
+
+    // W3C Generic Sensor API fallback (RelativeOrientationSensor / AbsoluteOrientationSensor / GravitySensor / Accelerometer)
+    // Useful in Chromium/U4/Quark kernels where legacy window orientation events may be throttled or stubbed
+    interface GenericSensorLike {
+      start: () => void;
+      stop: () => void;
+      addEventListener: (type: string, cb: () => void) => void;
+      quaternion?: number[];
+      x?: number;
+      y?: number;
+      z?: number;
+    }
+    type SensorConstructor = new (opts?: { frequency?: number; referenceFrame?: string }) => GenericSensorLike;
+    let activeGenericSensor: GenericSensorLike | null = null;
+
+    const stopGenericSensor = () => {
+      if (activeGenericSensor) {
+        try {
+          activeGenericSensor.stop();
+        } catch {
+          // Ignore stop errors
+        }
+        activeGenericSensor = null;
+      }
+    };
+
+    const startGenericSensorFallback = () => {
+      if (hasAnyOrientation.current || hasMotionGravity || activeGenericSensor) return;
+      const win = window as unknown as Record<string, SensorConstructor | undefined>;
+
+      const tryOrientationSensor = (Ctor: SensorConstructor | undefined): boolean => {
+        if (!Ctor) return false;
+        try {
+          const sensor = new Ctor({ frequency: 60, referenceFrame: 'screen' });
+          sensor.addEventListener('reading', () => {
+            if (hasAnyOrientation.current || hasMotionGravity) {
+              stopGenericSensor();
+              return;
+            }
+            const q = sensor.quaternion;
+            if (!q || q.length < 4) return;
+            const [qx, qy, qz, qw] = q;
+            const sinr = 2 * (qw * qx + qy * qz);
+            const cosr = 1 - 2 * (qx * qx + qy * qy);
+            const pitchDeg = Math.atan2(sinr, cosr) * (180 / Math.PI);
+            const sinp = 2 * (qw * qy - qz * qx);
+            const rollDeg =
+              (Math.abs(sinp) >= 1 ? Math.sign(sinp) * (Math.PI / 2) : Math.asin(sinp)) * (180 / Math.PI);
+            updateTargetFromAngles(rollDeg, pitchDeg);
+          });
+          sensor.addEventListener('error', () => {
+            stopGenericSensor();
+          });
+          sensor.start();
+          activeGenericSensor = sensor;
+          return true;
+        } catch {
+          return false;
+        }
+      };
+
+      const tryGravitySensor = (Ctor: SensorConstructor | undefined): boolean => {
+        if (!Ctor) return false;
+        try {
+          const sensor = new Ctor({ frequency: 60 });
+          sensor.addEventListener('reading', () => {
+            if (hasAnyOrientation.current || hasMotionGravity) {
+              stopGenericSensor();
+              return;
+            }
+            const { x: gx, y: gy, z: gz } = sensor;
+            if (typeof gx !== 'number' || typeof gy !== 'number' || typeof gz !== 'number') return;
+            if (Math.hypot(gx, gy, gz) < 1) return;
+            const rollDeg = Math.atan2(-gx, Math.hypot(gy, gz)) * (180 / Math.PI);
+            const pitchDeg = Math.atan2(gy, gz) * (180 / Math.PI);
+            updateTargetFromAngles(rollDeg, pitchDeg);
+          });
+          sensor.addEventListener('error', () => {
+            stopGenericSensor();
+          });
+          sensor.start();
+          activeGenericSensor = sensor;
+          return true;
+        } catch {
+          return false;
+        }
+      };
+
+      if (tryOrientationSensor(win.RelativeOrientationSensor)) return;
+      if (tryOrientationSensor(win.AbsoluteOrientationSensor)) return;
+      if (tryGravitySensor(win.GravitySensor)) return;
+      tryGravitySensor(win.Accelerometer);
     };
 
     const attachSensorListeners = () => {
-      window.addEventListener('deviceorientation', handleStandardOrientation, true);
-      window.addEventListener('deviceorientationabsolute', handleAbsoluteOrientation, true);
-      window.addEventListener('devicemotion', handleDeviceMotion, true);
+      window.addEventListener('deviceorientation', handleStandardOrientation, false);
+      window.addEventListener('deviceorientationabsolute', handleAbsoluteOrientation, false);
+      window.addEventListener('devicemotion', handleDeviceMotion, false);
     };
 
     const detachSensorListeners = () => {
-      window.removeEventListener('deviceorientation', handleStandardOrientation, true);
-      window.removeEventListener('deviceorientationabsolute', handleAbsoluteOrientation, true);
-      window.removeEventListener('devicemotion', handleDeviceMotion, true);
+      window.removeEventListener('deviceorientation', handleStandardOrientation, false);
+      window.removeEventListener('deviceorientationabsolute', handleAbsoluteOrientation, false);
+      window.removeEventListener('devicemotion', handleDeviceMotion, false);
+      stopGenericSensor();
     };
 
-    // Immediately register listeners (Android, WeChat, Webviews, DevTools Sensors)
+    // Immediately register standard listeners (Android, WeChat, WebViews, DevTools Sensors)
     attachSensorListeners();
+
+    // If legacy events haven't delivered real data after 600ms, try W3C Generic Sensor API
+    const genericFallbackTimer = window.setTimeout(() => {
+      if (!hasAnyOrientation.current && !hasMotionGravity) {
+        startGenericSensorFallback();
+      }
+    }, 600);
 
     // iOS Safari 13+ requires requestPermission() inside a 'click' activation gesture.
     // Force click synthesis on non-interactive SVG/div elements in iOS WebKit via cursor: pointer until resolved.
@@ -303,18 +420,34 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
         });
     };
 
+    // Non-iOS privacy-hardened browsers (e.g. Quark/UC Android) may require a user gesture before activating sensors
+    const reactivateSensorsOnGesture = () => {
+      if (hasAnyOrientation.current || hasMotionGravity || activeGenericSensor) {
+        document.removeEventListener('pointerdown', reactivateSensorsOnGesture, true);
+        return;
+      }
+      detachSensorListeners();
+      attachSensorListeners();
+      startGenericSensorFallback();
+    };
+
     if (reqFn) {
       if (document.body) {
         document.body.style.cursor = 'pointer';
       }
       document.addEventListener('click', requestPermissionOnClick, { capture: true, passive: true });
+    } else {
+      document.addEventListener('pointerdown', reactivateSensorsOnGesture, { capture: true, passive: true });
     }
 
     return () => {
+      window.clearTimeout(genericFallbackTimer);
       detachSensorListeners();
       if (reqFn) {
         restoreCursor();
         document.removeEventListener('click', requestPermissionOnClick, true);
+      } else {
+        document.removeEventListener('pointerdown', reactivateSensorsOnGesture, true);
       }
     };
   }, [enableGyroscope, maxDeflection, tiltSensitivity, calibrateOrigin]);
