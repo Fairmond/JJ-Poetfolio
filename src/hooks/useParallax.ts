@@ -71,17 +71,27 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
     }
   }, [isLoaded]);
 
-  // Inertia / Damping lerp loop
+  // Inertia / Damping lerp loop (skip redundant React state updates when resting to keep slow loads smooth)
   useEffect(() => {
     let animId: number;
+    let lastRenderedX = currentPos.current.x;
+    let lastRenderedY = currentPos.current.y;
+
     const update = () => {
       currentPos.current.x += (targetPos.current.x - currentPos.current.x) * damping;
       currentPos.current.y += (targetPos.current.y - currentPos.current.y) * damping;
 
-      setRenderPos({
-        x: currentPos.current.x,
-        y: currentPos.current.y,
-      });
+      if (
+        Math.abs(currentPos.current.x - lastRenderedX) > 0.0001 ||
+        Math.abs(currentPos.current.y - lastRenderedY) > 0.0001
+      ) {
+        lastRenderedX = currentPos.current.x;
+        lastRenderedY = currentPos.current.y;
+        setRenderPos({
+          x: currentPos.current.x,
+          y: currentPos.current.y,
+        });
+      }
 
       animId = requestAnimationFrame(update);
     };
@@ -90,12 +100,24 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
     return () => cancelAnimationFrame(animId);
   }, [damping]);
 
-  // Track real moving sensor activity so mouse fallback never overrides active gyroscope,
-  // while stationary / dummy (0, 0) sensor streams never lock out mouse preview.
+  // Track real moving sensor activity & active sensor source refs
   const lastGyroEventTime = useRef<number>(0);
   const lastSensorAngles = useRef<{ x: number; y: number } | null>(null);
   const hasStandardOrientation = useRef<boolean>(false);
   const hasAnyOrientation = useRef<boolean>(false);
+  const receivedValidLegacySensorRef = useRef<boolean>(false);
+  const iosPermissionGrantedRef = useRef<boolean>(false);
+  const ensurePostLoadSensorsRef = useRef<(() => void) | null>(null);
+  const isLoadedRef = useRef<boolean>(isLoaded);
+  isLoadedRef.current = isLoaded;
+
+  // When page finishes loading (isLoaded becomes true), trigger origin calibration and verify sensor stream
+  useEffect(() => {
+    if (isLoaded) {
+      needsCalibration.current = true;
+      ensurePostLoadSensorsRef.current?.();
+    }
+  }, [isLoaded]);
 
   const updateTargetFromClientXY = useCallback(
     (clientX: number, clientY: number, currentTarget: HTMLElement) => {
@@ -151,9 +173,21 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
 
     hasStandardOrientation.current = false;
     hasAnyOrientation.current = false;
+    receivedValidLegacySensorRef.current = false;
     lastSensorAngles.current = null;
+    let activeSource: 'none' | 'orientation' | 'motion' | 'generic' = 'none';
+    const mountTime = Date.now();
 
-    const updateTargetFromAngles = (angleX: number, angleY: number) => {
+    const updateTargetFromAngles = (
+      source: 'orientation' | 'motion' | 'generic',
+      angleX: number,
+      angleY: number,
+    ) => {
+      if (activeSource !== source) {
+        activeSource = source;
+        needsCalibration.current = true;
+      }
+
       if (
         lastSensorAngles.current &&
         Math.hypot(angleX - lastSensorAngles.current.x, angleY - lastSensorAngles.current.y) > 0.15
@@ -181,31 +215,33 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
     };
 
     const handleStandardOrientation = (e: DeviceOrientationEvent) => {
-      const { gamma: g, beta: b } = e;
+      const { gamma: g, beta: b, alpha: a } = e;
       if (typeof g !== 'number' || typeof b !== 'number' || Number.isNaN(g) || Number.isNaN(b)) {
         return;
       }
-      // Ignore stubbed/uninitialized (beta=0, gamma=0) events before any real tilt arrives so fallbacks can engage
-      if (!hasStandardOrientation.current && g === 0 && b === 0) {
+      // Ignore stubbed/uninitialized (0, 0, 0) events before any real tilt arrives so fallbacks can engage
+      if (!hasStandardOrientation.current && g === 0 && b === 0 && (a === null || a === 0)) {
         return;
       }
+      receivedValidLegacySensorRef.current = true;
       hasStandardOrientation.current = true;
       hasAnyOrientation.current = true;
-      updateTargetFromAngles(g, b);
+      updateTargetFromAngles('orientation', g, b);
     };
 
     const handleAbsoluteOrientation = (e: Event) => {
       if (hasStandardOrientation.current) return;
       const oe = e as DeviceOrientationEvent;
-      const { gamma: g, beta: b } = oe;
+      const { gamma: g, beta: b, alpha: a } = oe;
       if (typeof g !== 'number' || typeof b !== 'number' || Number.isNaN(g) || Number.isNaN(b)) {
         return;
       }
-      if (!hasAnyOrientation.current && g === 0 && b === 0) {
+      if (!hasAnyOrientation.current && g === 0 && b === 0 && (a === null || a === 0)) {
         return;
       }
+      receivedValidLegacySensorRef.current = true;
       hasAnyOrientation.current = true;
-      updateTargetFromAngles(g, b);
+      updateTargetFromAngles('orientation', g, b);
     };
 
     const isIOS =
@@ -230,11 +266,12 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
       ) {
         const gLen = Math.hypot(acc.x, acc.y, acc.z);
         if (gLen >= 1) {
+          receivedValidLegacySensorRef.current = true;
           hasMotionGravity = true;
           const sign = isIOS ? -1 : 1;
           const rollDeg = Math.atan2(acc.x * sign, Math.hypot(acc.y, acc.z)) * (180 / Math.PI);
           const pitchDeg = Math.atan2(-acc.y * sign, -acc.z * sign) * (180 / Math.PI);
-          updateTargetFromAngles(rollDeg, pitchDeg);
+          updateTargetFromAngles('motion', rollDeg, pitchDeg);
           return;
         }
       }
@@ -244,17 +281,17 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
         const { beta: rb, gamma: rg } = e.rotationRate;
         if (typeof rb === 'number' && typeof rg === 'number' && !Number.isNaN(rb) && !Number.isNaN(rg)) {
           if (rb === 0 && rg === 0 && rotAngleX === 0 && rotAngleY === 0) return;
+          receivedValidLegacySensorRef.current = true;
           const rawInterval = e.interval || 16;
           const dtSec = rawInterval > 1 ? Math.min(rawInterval / 1000, 0.05) : Math.min(rawInterval, 0.05);
           rotAngleX = rotAngleX * 0.985 + rg * dtSec;
           rotAngleY = rotAngleY * 0.985 + rb * dtSec;
-          updateTargetFromAngles(rotAngleX, rotAngleY);
+          updateTargetFromAngles('motion', rotAngleX, rotAngleY);
         }
       }
     };
 
-    // W3C Generic Sensor API fallback (RelativeOrientationSensor / AbsoluteOrientationSensor / GravitySensor / Accelerometer)
-    // Useful in Chromium/U4/Quark kernels where legacy window orientation events may be throttled or stubbed
+    // W3C Generic Sensor API fallback (only activated AFTER page load if zero legacy events arrived)
     interface GenericSensorLike {
       start: () => void;
       stop: () => void;
@@ -279,15 +316,15 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
     };
 
     const startGenericSensorFallback = () => {
-      if (hasAnyOrientation.current || hasMotionGravity || activeGenericSensor) return;
+      if (receivedValidLegacySensorRef.current || activeGenericSensor) return;
       const win = window as unknown as Record<string, SensorConstructor | undefined>;
 
       const tryOrientationSensor = (Ctor: SensorConstructor | undefined): boolean => {
         if (!Ctor) return false;
         try {
-          const sensor = new Ctor({ frequency: 60, referenceFrame: 'screen' });
+          const sensor = new Ctor({ frequency: 60 });
           sensor.addEventListener('reading', () => {
-            if (hasAnyOrientation.current || hasMotionGravity) {
+            if (receivedValidLegacySensorRef.current) {
               stopGenericSensor();
               return;
             }
@@ -300,7 +337,7 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
             const sinp = 2 * (qw * qy - qz * qx);
             const rollDeg =
               (Math.abs(sinp) >= 1 ? Math.sign(sinp) * (Math.PI / 2) : Math.asin(sinp)) * (180 / Math.PI);
-            updateTargetFromAngles(rollDeg, pitchDeg);
+            updateTargetFromAngles('generic', rollDeg, pitchDeg);
           });
           sensor.addEventListener('error', () => {
             stopGenericSensor();
@@ -318,7 +355,7 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
         try {
           const sensor = new Ctor({ frequency: 60 });
           sensor.addEventListener('reading', () => {
-            if (hasAnyOrientation.current || hasMotionGravity) {
+            if (receivedValidLegacySensorRef.current) {
               stopGenericSensor();
               return;
             }
@@ -327,7 +364,7 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
             if (Math.hypot(gx, gy, gz) < 1) return;
             const rollDeg = Math.atan2(-gx, Math.hypot(gy, gz)) * (180 / Math.PI);
             const pitchDeg = Math.atan2(gy, gz) * (180 / Math.PI);
-            updateTargetFromAngles(rollDeg, pitchDeg);
+            updateTargetFromAngles('generic', rollDeg, pitchDeg);
           });
           sensor.addEventListener('error', () => {
             stopGenericSensor();
@@ -347,27 +384,52 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
     };
 
     const attachSensorListeners = () => {
-      window.addEventListener('deviceorientation', handleStandardOrientation, false);
-      window.addEventListener('deviceorientationabsolute', handleAbsoluteOrientation, false);
-      window.addEventListener('devicemotion', handleDeviceMotion, false);
+      window.addEventListener('deviceorientation', handleStandardOrientation, true);
+      window.addEventListener('deviceorientationabsolute', handleAbsoluteOrientation, true);
+      window.addEventListener('devicemotion', handleDeviceMotion, true);
     };
 
     const detachSensorListeners = () => {
-      window.removeEventListener('deviceorientation', handleStandardOrientation, false);
-      window.removeEventListener('deviceorientationabsolute', handleAbsoluteOrientation, false);
-      window.removeEventListener('devicemotion', handleDeviceMotion, false);
+      window.removeEventListener('deviceorientation', handleStandardOrientation, true);
+      window.removeEventListener('deviceorientationabsolute', handleAbsoluteOrientation, true);
+      window.removeEventListener('devicemotion', handleDeviceMotion, true);
       stopGenericSensor();
     };
 
-    // Immediately register standard listeners (Android, WeChat, WebViews, DevTools Sensors)
+    // Immediately register standard capture-phase listeners (Android, WeChat, WebViews, DevTools Sensors)
     attachSensorListeners();
 
-    // If legacy events haven't delivered real data after 600ms, try W3C Generic Sensor API
-    const genericFallbackTimer = window.setTimeout(() => {
-      if (!hasAnyOrientation.current && !hasMotionGravity) {
-        startGenericSensorFallback();
+    let genericFallbackTimer: number | null = null;
+
+    // Re-ensure sensor attachment when page finishes loading or becomes visible (fixes slow-load browser drops)
+    const ensureSensorsAfterLoad = () => {
+      if (!receivedValidLegacySensorRef.current) {
+        detachSensorListeners();
+        attachSensorListeners();
+        calibrateOrigin();
+        if (isLoadedRef.current && genericFallbackTimer === null) {
+          genericFallbackTimer = window.setTimeout(() => {
+            genericFallbackTimer = null;
+            if (!receivedValidLegacySensorRef.current) {
+              startGenericSensorFallback();
+            }
+          }, 1200);
+        }
       }
-    }, 600);
+    };
+    ensurePostLoadSensorsRef.current = ensureSensorsAfterLoad;
+    if (isLoadedRef.current) {
+      ensureSensorsAfterLoad();
+    }
+
+    window.addEventListener('load', ensureSensorsAfterLoad);
+    window.addEventListener('pageshow', ensureSensorsAfterLoad);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        ensureSensorsAfterLoad();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
 
     // iOS Safari 13+ requires requestPermission() inside a 'click' activation gesture.
     // Force click synthesis on non-interactive SVG/div elements in iOS WebKit via cursor: pointer until resolved.
@@ -387,7 +449,9 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
           ? dme.requestPermission.bind(DeviceMotionEvent)
           : null;
 
-    let permissionStatus: 'idle' | 'pending' | 'granted' | 'denied' = 'idle';
+    let permissionStatus: 'idle' | 'pending' | 'granted' | 'denied' = iosPermissionGrantedRef.current
+      ? 'granted'
+      : 'idle';
     const prevBodyCursor = document.body?.style.cursor ?? '';
 
     const restoreCursor = () => {
@@ -404,6 +468,7 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
         .then((state) => {
           if (state === 'granted') {
             permissionStatus = 'granted';
+            iosPermissionGrantedRef.current = true;
             restoreCursor();
             detachSensorListeners();
             attachSensorListeners();
@@ -420,28 +485,35 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
         });
     };
 
-    // Non-iOS privacy-hardened browsers (e.g. Quark/UC Android) may require a user gesture before activating sensors
     const reactivateSensorsOnGesture = () => {
-      if (hasAnyOrientation.current || hasMotionGravity || activeGenericSensor) {
+      if (receivedValidLegacySensorRef.current) {
         document.removeEventListener('pointerdown', reactivateSensorsOnGesture, true);
         return;
       }
       detachSensorListeners();
       attachSensorListeners();
-      startGenericSensorFallback();
+      if (isLoadedRef.current && Date.now() - mountTime > 1200) {
+        startGenericSensorFallback();
+      }
     };
 
-    if (reqFn) {
+    if (reqFn && !iosPermissionGrantedRef.current) {
       if (document.body) {
         document.body.style.cursor = 'pointer';
       }
       document.addEventListener('click', requestPermissionOnClick, { capture: true, passive: true });
-    } else {
+    } else if (!reqFn) {
       document.addEventListener('pointerdown', reactivateSensorsOnGesture, { capture: true, passive: true });
     }
 
     return () => {
-      window.clearTimeout(genericFallbackTimer);
+      ensurePostLoadSensorsRef.current = null;
+      if (genericFallbackTimer !== null) {
+        window.clearTimeout(genericFallbackTimer);
+      }
+      window.removeEventListener('load', ensureSensorsAfterLoad);
+      window.removeEventListener('pageshow', ensureSensorsAfterLoad);
+      document.removeEventListener('visibilitychange', handleVisibility);
       detachSensorListeners();
       if (reqFn) {
         restoreCursor();
