@@ -89,9 +89,22 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
     return () => cancelAnimationFrame(animId);
   }, [damping]);
 
-  // Mouse move handler (PC) - reaches full radius within center 60% area, angle-only beyond
+  // Track sensor activity so mouse fallback never overrides active gyroscope or touch taps
+  const lastGyroEventTime = useRef<number>(0);
+  const hasStandardOrientation = useRef<boolean>(false);
+
+  // Mouse move handler (PC / Desktop preview) - reaches full radius within center 60% area, angle-only beyond
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLElement>) => {
+      // Ignore synthetic mousemove synthesized from touch taps on mobile browsers
+      const nativeEvt = e.nativeEvent as MouseEvent & {
+        sourceCapabilities?: { firesTouchEvents?: boolean };
+      };
+      if (nativeEvt.sourceCapabilities?.firesTouchEvents) return;
+
+      // Do not let mouse hover overwrite active gyroscope readings
+      if (enableGyroscope && Date.now() - lastGyroEventTime.current < 3000) return;
+
       const rect = e.currentTarget.getBoundingClientRect();
       if (!rect.width || !rect.height) return;
       const safeRatio = mouseActiveRatio > 0 ? mouseActiveRatio : 1;
@@ -99,12 +112,13 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
       const rawY = (((e.clientY - rect.top) / rect.height - 0.5) * 2) / safeRatio;
       targetPos.current = clampToCircle(rawX, rawY, maxDeflection);
     },
-    [maxDeflection, mouseActiveRatio],
+    [enableGyroscope, maxDeflection, mouseActiveRatio],
   );
 
   const handleMouseLeave = useCallback(() => {
+    if (enableGyroscope && Date.now() - lastGyroEventTime.current < 3000) return;
     targetPos.current = { x: 0, y: 0 };
-  }, []);
+  }, [enableGyroscope]);
 
   const resetTarget = useCallback(() => {
     targetPos.current = { x: 0, y: 0 };
@@ -114,12 +128,18 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
   useEffect(() => {
     if (!enableGyroscope || typeof window === 'undefined') return;
 
-    const handleOrientation = (e: DeviceOrientationEvent) => {
-      const g = e.gamma;
-      const b = e.beta;
-      if (typeof g !== 'number' || typeof b !== 'number' || isNaN(g) || isNaN(b)) {
+    hasStandardOrientation.current = false;
+
+    const processOrientation = (g: number | null, b: number | null, isAbsoluteFallback: boolean) => {
+      if (isAbsoluteFallback && hasStandardOrientation.current) return;
+      if (typeof g !== 'number' || typeof b !== 'number' || Number.isNaN(g) || Number.isNaN(b)) {
         return;
       }
+
+      if (!isAbsoluteFallback) {
+        hasStandardOrientation.current = true;
+      }
+      lastGyroEventTime.current = Date.now();
 
       // If calibration is flagged, record the exact current posture as the center (0, 0)
       if (needsCalibration.current || originGamma.current === null || originBeta.current === null) {
@@ -139,40 +159,67 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
       targetPos.current = clampToCircle(rawX, rawY, maxDeflection);
     };
 
-    // Immediately register standard deviceorientation listener (Android, WeChat, Webviews)
-    window.addEventListener('deviceorientation', handleOrientation, true);
-
-    // iOS Safari 13+ permission handling on first user interaction gesture
-    let permissionRequested = false;
-    const requestPermissionOnGesture = () => {
-      if (permissionRequested) return;
-      if (
-        typeof DeviceOrientationEvent !== 'undefined' &&
-        typeof (DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> })
-          .requestPermission === 'function'
-      ) {
-        permissionRequested = true;
-        (DeviceOrientationEvent as unknown as { requestPermission: () => Promise<string> })
-          .requestPermission()
-          .then((state) => {
-            if (state === 'granted') {
-              window.addEventListener('deviceorientation', handleOrientation, true);
-              calibrateOrigin();
-            }
-          })
-          .catch(() => {});
-      }
+    const handleStandardOrientation = (e: DeviceOrientationEvent) => {
+      processOrientation(e.gamma, e.beta, false);
     };
 
-    window.addEventListener('touchstart', requestPermissionOnGesture, { passive: true, once: true });
-    window.addEventListener('touchend', requestPermissionOnGesture, { passive: true, once: true });
-    window.addEventListener('click', requestPermissionOnGesture, { passive: true, once: true });
+    const handleAbsoluteOrientation = (e: Event) => {
+      const oe = e as DeviceOrientationEvent;
+      processOrientation(oe.gamma, oe.beta, true);
+    };
+
+    const attachOrientationListeners = () => {
+      window.addEventListener('deviceorientation', handleStandardOrientation, true);
+      window.addEventListener('deviceorientationabsolute', handleAbsoluteOrientation, true);
+    };
+
+    const detachOrientationListeners = () => {
+      window.removeEventListener('deviceorientation', handleStandardOrientation, true);
+      window.removeEventListener('deviceorientationabsolute', handleAbsoluteOrientation, true);
+    };
+
+    // Immediately register listeners (Android, WeChat, Webviews, DevTools Sensors)
+    attachOrientationListeners();
+
+    // iOS Safari 13+ requires requestPermission() inside a completed activation gesture (touchend / click, NOT touchstart)
+    let permissionStatus: 'idle' | 'pending' | 'granted' | 'denied' = 'idle';
+    const requestPermissionOnGesture = () => {
+      if (permissionStatus === 'pending' || permissionStatus === 'granted') return;
+      const doe = DeviceOrientationEvent as unknown as {
+        requestPermission?: () => Promise<string>;
+      };
+      if (typeof DeviceOrientationEvent === 'undefined' || typeof doe.requestPermission !== 'function') {
+        return;
+      }
+
+      permissionStatus = 'pending';
+      doe
+        .requestPermission()
+        .then((state) => {
+          if (state === 'granted') {
+            permissionStatus = 'granted';
+            detachOrientationListeners();
+            attachOrientationListeners();
+            calibrateOrigin();
+            window.removeEventListener('touchend', requestPermissionOnGesture, true);
+            window.removeEventListener('click', requestPermissionOnGesture, true);
+          } else {
+            permissionStatus = 'denied';
+          }
+        })
+        .catch(() => {
+          // Gesture was not trusted (e.g., cancelled or blocked); allow next tap to retry
+          permissionStatus = 'idle';
+        });
+    };
+
+    window.addEventListener('touchend', requestPermissionOnGesture, { capture: true, passive: true });
+    window.addEventListener('click', requestPermissionOnGesture, { capture: true, passive: true });
 
     return () => {
-      window.removeEventListener('deviceorientation', handleOrientation, true);
-      window.removeEventListener('touchstart', requestPermissionOnGesture);
-      window.removeEventListener('touchend', requestPermissionOnGesture);
-      window.removeEventListener('click', requestPermissionOnGesture);
+      detachOrientationListeners();
+      window.removeEventListener('touchend', requestPermissionOnGesture, true);
+      window.removeEventListener('click', requestPermissionOnGesture, true);
     };
   }, [enableGyroscope, maxDeflection, tiltSensitivity, calibrateOrigin]);
 

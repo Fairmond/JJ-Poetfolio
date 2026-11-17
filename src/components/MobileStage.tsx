@@ -72,6 +72,12 @@ export const MobileStage: React.FC<MobileStageProps> = ({
   const openOffset = Math.min(drawerHeight - peekHeight, maxAllowedOffset);
   const marginBottom = -(drawerHeight - peekHeight);
 
+  // TEMPORARY: allow desktop narrow-window mouse preview without interfering with real touch devices
+  const isTouchPrimaryDevice =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+
   return (
     <div
       id="mobile-stage-root"
@@ -83,8 +89,8 @@ export const MobileStage: React.FC<MobileStageProps> = ({
     >
       <div
         ref={stageRef}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
+        onMouseMove={isTouchPrimaryDevice ? undefined : handleMouseMove}
+        onMouseLeave={isTouchPrimaryDevice ? undefined : handleMouseLeave}
         className="w-full max-w-[640px] h-full flex-1 min-h-0 relative flex flex-col items-center justify-between overflow-hidden"
       >
         {/* Top Fixed Header */}
