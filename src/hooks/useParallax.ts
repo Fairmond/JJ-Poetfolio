@@ -55,9 +55,18 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
   const targetPos = useRef<ParallaxCoords>({ x: 0, y: 0 });
   const currentPos = useRef<ParallaxCoords>({ x: 0, y: 0 });
 
-  // Calibrated origin: baseline angles captured upon page load completion
-  const originGamma = useRef<number | null>(null);
-  const originBeta = useRef<number | null>(null);
+  // Calibrated origin: baseline 3D unit gravity vector & tangent basis captured upon load completion
+  const originBasisRef = useRef<{
+    ux: number;
+    uy: number;
+    uz: number;
+    rx: number;
+    ry: number;
+    rz: number;
+    px: number;
+    py: number;
+    pz: number;
+  } | null>(null);
   const needsCalibration = useRef<boolean>(true);
 
   const calibrateOrigin = useCallback(() => {
@@ -102,7 +111,7 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
 
   // Track real moving sensor activity & active sensor source refs
   const lastGyroEventTime = useRef<number>(0);
-  const lastSensorAngles = useRef<{ x: number; y: number } | null>(null);
+  const lastSensorVector = useRef<{ ux: number; uy: number; uz: number } | null>(null);
   const hasStandardOrientation = useRef<boolean>(false);
   const hasAnyOrientation = useRef<boolean>(false);
   const receivedValidLegacySensorRef = useRef<boolean>(false);
@@ -174,44 +183,98 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
     hasStandardOrientation.current = false;
     hasAnyOrientation.current = false;
     receivedValidLegacySensorRef.current = false;
-    lastSensorAngles.current = null;
+    lastSensorVector.current = null;
+    originBasisRef.current = null;
     let activeSource: 'none' | 'orientation' | 'motion' | 'generic' = 'none';
     const mountTime = Date.now();
+    const DEG_TO_RAD = Math.PI / 180;
+    const RAD_TO_DEG = 180 / Math.PI;
 
-    const updateTargetFromAngles = (
+    const buildTangentBasis = (ux: number, uy: number, uz: number) => {
+      // Project device screen-right axis (1, 0, 0) onto plane perpendicular to baseline up-vector u0
+      let rx = 1 - ux * ux;
+      let ry = -ux * uy;
+      let rz = -ux * uz;
+      let rLen = Math.hypot(rx, ry, rz);
+      if (rLen < 1e-3) {
+        // Phone calibrated nearly sideways on its edge: fall back to screen-normal axis
+        rx = 0;
+        ry = 0;
+        rz = ux >= 0 ? -1 : 1;
+        rLen = 1;
+      }
+      rx /= rLen;
+      ry /= rLen;
+      rz /= rLen;
+
+      // Pitch axis = u0 x eRight (unit vector orthogonal to both u0 and eRight)
+      const px = uy * rz - uz * ry;
+      const py = uz * rx - ux * rz;
+      const pz = ux * ry - uy * rx;
+
+      return { ux, uy, uz, rx, ry, rz, px, py, pz };
+    };
+
+    const updateTargetFromUnitVector = (
       source: 'orientation' | 'motion' | 'generic',
-      angleX: number,
-      angleY: number,
+      rawUx: number,
+      rawUy: number,
+      rawUz: number,
     ) => {
+      const len = Math.hypot(rawUx, rawUy, rawUz);
+      if (len < 1e-4) return;
+      const ux = rawUx / len;
+      const uy = rawUy / len;
+      const uz = rawUz / len;
+
       if (activeSource !== source) {
         activeSource = source;
         needsCalibration.current = true;
       }
 
       if (
-        lastSensorAngles.current &&
-        Math.hypot(angleX - lastSensorAngles.current.x, angleY - lastSensorAngles.current.y) > 0.15
+        lastSensorVector.current &&
+        Math.hypot(
+          ux - lastSensorVector.current.ux,
+          uy - lastSensorVector.current.uy,
+          uz - lastSensorVector.current.uz,
+        ) > 0.0026
       ) {
         lastGyroEventTime.current = Date.now();
       }
-      lastSensorAngles.current = { x: angleX, y: angleY };
+      lastSensorVector.current = { ux, uy, uz };
 
-      // If calibration is flagged, record the exact current posture as the center (0, 0)
-      if (needsCalibration.current || originGamma.current === null || originBeta.current === null) {
-        originGamma.current = angleX;
-        originBeta.current = angleY;
+      // Capture calibrated baseline posture on first sample or post-load reset
+      if (needsCalibration.current || originBasisRef.current === null) {
+        originBasisRef.current = buildTangentBasis(ux, uy, uz);
         needsCalibration.current = false;
       }
 
-      // Delta angles from calibrated baseline
-      const deltaX = angleX - originGamma.current;
-      const deltaY = angleY - originBeta.current;
+      const basis = originBasisRef.current;
+      // Spherical great-circle angle (0°..180°) from calibrated origin, completely free of Euler gimbal lock & ±90° wraps
+      const dot = Math.max(-1, Math.min(1, ux * basis.ux + uy * basis.uy + uz * basis.uz));
+      const thetaDeg = Math.acos(dot) * RAD_TO_DEG;
 
-      // Map to normalized range with sensitivity and strictly clamp within circle radius
-      const rawX = deltaX / tiltSensitivity;
-      const rawY = deltaY / tiltSensitivity;
+      if (thetaDeg < 1e-4) {
+        targetPos.current = { x: 0, y: 0 };
+        return;
+      }
 
-      targetPos.current = clampToCircle(rawX, rawY, maxDeflection);
+      const projX = ux * basis.rx + uy * basis.ry + uz * basis.rz;
+      const projY = ux * basis.px + uy * basis.py + uz * basis.pz;
+      const projMag = Math.hypot(projX, projY);
+
+      if (projMag < 1e-6) {
+        if (dot > 0) {
+          targetPos.current = { x: 0, y: 0 };
+        }
+        return;
+      }
+
+      const deltaXDeg = (thetaDeg * projX) / projMag;
+      const deltaYDeg = (thetaDeg * projY) / projMag;
+
+      targetPos.current = clampToCircle(deltaXDeg / tiltSensitivity, deltaYDeg / tiltSensitivity, maxDeflection);
     };
 
     const handleStandardOrientation = (e: DeviceOrientationEvent) => {
@@ -226,7 +289,15 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
       receivedValidLegacySensorRef.current = true;
       hasStandardOrientation.current = true;
       hasAnyOrientation.current = true;
-      updateTargetFromAngles('orientation', g, b);
+      const bRad = b * DEG_TO_RAD;
+      const gRad = g * DEG_TO_RAD;
+      const cosB = Math.cos(bRad);
+      updateTargetFromUnitVector(
+        'orientation',
+        cosB * Math.sin(gRad),
+        Math.sin(bRad),
+        cosB * Math.cos(gRad),
+      );
     };
 
     const handleAbsoluteOrientation = (e: Event) => {
@@ -241,7 +312,15 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
       }
       receivedValidLegacySensorRef.current = true;
       hasAnyOrientation.current = true;
-      updateTargetFromAngles('orientation', g, b);
+      const bRad = b * DEG_TO_RAD;
+      const gRad = g * DEG_TO_RAD;
+      const cosB = Math.cos(bRad);
+      updateTargetFromUnitVector(
+        'orientation',
+        cosB * Math.sin(gRad),
+        Math.sin(bRad),
+        cosB * Math.cos(gRad),
+      );
     };
 
     const isIOS =
@@ -269,9 +348,12 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
           receivedValidLegacySensorRef.current = true;
           hasMotionGravity = true;
           const sign = isIOS ? -1 : 1;
-          const rollDeg = Math.atan2(acc.x * sign, Math.hypot(acc.y, acc.z)) * (180 / Math.PI);
-          const pitchDeg = Math.atan2(-acc.y * sign, -acc.z * sign) * (180 / Math.PI);
-          updateTargetFromAngles('motion', rollDeg, pitchDeg);
+          updateTargetFromUnitVector(
+            'motion',
+            (-acc.x * sign) / gLen,
+            (acc.y * sign) / gLen,
+            (acc.z * sign) / gLen,
+          );
           return;
         }
       }
@@ -286,7 +368,15 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
           const dtSec = rawInterval > 1 ? Math.min(rawInterval / 1000, 0.05) : Math.min(rawInterval, 0.05);
           rotAngleX = rotAngleX * 0.985 + rg * dtSec;
           rotAngleY = rotAngleY * 0.985 + rb * dtSec;
-          updateTargetFromAngles('motion', rotAngleX, rotAngleY);
+          const bRad = rotAngleY * DEG_TO_RAD;
+          const gRad = rotAngleX * DEG_TO_RAD;
+          const cosB = Math.cos(bRad);
+          updateTargetFromUnitVector(
+            'motion',
+            cosB * Math.sin(gRad),
+            Math.sin(bRad),
+            cosB * Math.cos(gRad),
+          );
         }
       }
     };
@@ -331,13 +421,12 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
             const q = sensor.quaternion;
             if (!q || q.length < 4) return;
             const [qx, qy, qz, qw] = q;
-            const sinr = 2 * (qw * qx + qy * qz);
-            const cosr = 1 - 2 * (qx * qx + qy * qy);
-            const pitchDeg = Math.atan2(sinr, cosr) * (180 / Math.PI);
-            const sinp = 2 * (qw * qy - qz * qx);
-            const rollDeg =
-              (Math.abs(sinp) >= 1 ? Math.sign(sinp) * (Math.PI / 2) : Math.asin(sinp)) * (180 / Math.PI);
-            updateTargetFromAngles('generic', rollDeg, pitchDeg);
+            updateTargetFromUnitVector(
+              'generic',
+              2 * (qw * qy - qx * qz),
+              2 * (qy * qz + qw * qx),
+              1 - 2 * (qx * qx + qy * qy),
+            );
           });
           sensor.addEventListener('error', () => {
             stopGenericSensor();
@@ -361,10 +450,9 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
             }
             const { x: gx, y: gy, z: gz } = sensor;
             if (typeof gx !== 'number' || typeof gy !== 'number' || typeof gz !== 'number') return;
-            if (Math.hypot(gx, gy, gz) < 1) return;
-            const rollDeg = Math.atan2(-gx, Math.hypot(gy, gz)) * (180 / Math.PI);
-            const pitchDeg = Math.atan2(gy, gz) * (180 / Math.PI);
-            updateTargetFromAngles('generic', rollDeg, pitchDeg);
+            const gLen = Math.hypot(gx, gy, gz);
+            if (gLen < 1) return;
+            updateTargetFromUnitVector('generic', -gx / gLen, gy / gLen, gz / gLen);
           });
           sensor.addEventListener('error', () => {
             stopGenericSensor();
