@@ -26,19 +26,14 @@ export interface UseParallaxResult {
 
 /**
  * High-performance parallax physics hook with inertia / lerp damping loop,
- * dynamic post-load gyroscope origin calibration, circular radial movement clamping,
+ * dynamic post-load gyroscope origin calibration, square axis-independent clamping,
  * and robust cross-platform device orientation support.
  */
-function clampToCircle(x: number, y: number, radius: number): ParallaxCoords {
-  const dist = Math.hypot(x, y);
-  if (dist > radius && dist > 0) {
-    const scale = radius / dist;
-    return {
-      x: x * scale,
-      y: y * scale,
-    };
-  }
-  return { x, y };
+function clampToSquare(x: number, y: number, limit: number): ParallaxCoords {
+  return {
+    x: Math.max(-limit, Math.min(limit, x)),
+    y: Math.max(-limit, Math.min(limit, y)),
+  };
 }
 
 export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult {
@@ -135,7 +130,7 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
       const safeRatio = mouseActiveRatio > 0 ? mouseActiveRatio : 1;
       const rawX = (((clientX - rect.left) / rect.width - 0.5) * 2) / safeRatio;
       const rawY = (((clientY - rect.top) / rect.height - 0.5) * 2) / safeRatio;
-      targetPos.current = clampToCircle(rawX, rawY, maxDeflection);
+      targetPos.current = clampToSquare(rawX, rawY, maxDeflection);
     },
     [maxDeflection, mouseActiveRatio],
   );
@@ -274,7 +269,7 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
       const deltaXDeg = (thetaDeg * projX) / projMag;
       const deltaYDeg = (thetaDeg * projY) / projMag;
 
-      targetPos.current = clampToCircle(deltaXDeg / tiltSensitivity, deltaYDeg / tiltSensitivity, maxDeflection);
+      targetPos.current = clampToSquare(deltaXDeg / tiltSensitivity, deltaYDeg / tiltSensitivity, maxDeflection);
     };
 
     const handleStandardOrientation = (e: DeviceOrientationEvent) => {
