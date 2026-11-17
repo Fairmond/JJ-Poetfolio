@@ -18,6 +18,7 @@ export interface UseParallaxResult {
   renderPos: ParallaxCoords;
   targetPos: React.MutableRefObject<ParallaxCoords>;
   handleMouseMove: (e: React.MouseEvent<HTMLElement>) => void;
+  handlePointerMove: (e: React.PointerEvent<HTMLElement>) => void;
   handleMouseLeave: () => void;
   resetTarget: () => void;
   calibrateOrigin: () => void;
@@ -89,10 +90,24 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
     return () => cancelAnimationFrame(animId);
   }, [damping]);
 
-  // Track sensor activity so mouse fallback never overrides active gyroscope or touch taps
+  // Track real moving sensor activity so mouse fallback never overrides active gyroscope,
+  // while stationary / dummy (0, 0) sensor streams never lock out mouse preview.
   const lastGyroEventTime = useRef<number>(0);
+  const lastSensorAngles = useRef<{ x: number; y: number } | null>(null);
   const hasStandardOrientation = useRef<boolean>(false);
   const hasAnyOrientation = useRef<boolean>(false);
+
+  const updateTargetFromClientXY = useCallback(
+    (clientX: number, clientY: number, currentTarget: HTMLElement) => {
+      const rect = currentTarget.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      const safeRatio = mouseActiveRatio > 0 ? mouseActiveRatio : 1;
+      const rawX = (((clientX - rect.left) / rect.width - 0.5) * 2) / safeRatio;
+      const rawY = (((clientY - rect.top) / rect.height - 0.5) * 2) / safeRatio;
+      targetPos.current = clampToCircle(rawX, rawY, maxDeflection);
+    },
+    [maxDeflection, mouseActiveRatio],
+  );
 
   // Mouse move handler (PC / Desktop preview) - reaches full radius within center 60% area, angle-only beyond
   const handleMouseMove = useCallback(
@@ -103,17 +118,22 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
       };
       if (nativeEvt.sourceCapabilities?.firesTouchEvents) return;
 
-      // Do not let mouse hover overwrite active gyroscope readings
+      // Do not let mouse hover overwrite active moving gyroscope readings
       if (enableGyroscope && Date.now() - lastGyroEventTime.current < 3000) return;
 
-      const rect = e.currentTarget.getBoundingClientRect();
-      if (!rect.width || !rect.height) return;
-      const safeRatio = mouseActiveRatio > 0 ? mouseActiveRatio : 1;
-      const rawX = (((e.clientX - rect.left) / rect.width - 0.5) * 2) / safeRatio;
-      const rawY = (((e.clientY - rect.top) / rect.height - 0.5) * 2) / safeRatio;
-      targetPos.current = clampToCircle(rawX, rawY, maxDeflection);
+      updateTargetFromClientXY(e.clientX, e.clientY, e.currentTarget);
     },
-    [enableGyroscope, maxDeflection, mouseActiveRatio],
+    [enableGyroscope, updateTargetFromClientXY],
+  );
+
+  // Pointer move handler (supports desktop mouse, pen, and DevTools touch-drag preview when gyro is inactive)
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent<HTMLElement>) => {
+      if (enableGyroscope && Date.now() - lastGyroEventTime.current < 3000) return;
+      if (e.pointerType === 'touch' && !enableGyroscope) return;
+      updateTargetFromClientXY(e.clientX, e.clientY, e.currentTarget);
+    },
+    [enableGyroscope, updateTargetFromClientXY],
   );
 
   const handleMouseLeave = useCallback(() => {
@@ -131,9 +151,16 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
 
     hasStandardOrientation.current = false;
     hasAnyOrientation.current = false;
+    lastSensorAngles.current = null;
 
     const updateTargetFromAngles = (angleX: number, angleY: number) => {
-      lastGyroEventTime.current = Date.now();
+      if (
+        lastSensorAngles.current &&
+        Math.hypot(angleX - lastSensorAngles.current.x, angleY - lastSensorAngles.current.y) > 0.15
+      ) {
+        lastGyroEventTime.current = Date.now();
+      }
+      lastSensorAngles.current = { x: angleX, y: angleY };
 
       // If calibration is flagged, record the exact current posture as the center (0, 0)
       if (needsCalibration.current || originGamma.current === null || originBeta.current === null) {
@@ -154,8 +181,12 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
     };
 
     const handleStandardOrientation = (e: DeviceOrientationEvent) => {
-      const { gamma: g, beta: b } = e;
+      const { gamma: g, beta: b, alpha: a } = e;
       if (typeof g !== 'number' || typeof b !== 'number' || Number.isNaN(g) || Number.isNaN(b)) {
+        return;
+      }
+      // Ignore uninitialized dummy (0, 0, 0) stream before any real reading arrives so fallbacks can engage
+      if (!hasStandardOrientation.current && g === 0 && b === 0 && (a === null || a === 0)) {
         return;
       }
       hasStandardOrientation.current = true;
@@ -166,8 +197,11 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
     const handleAbsoluteOrientation = (e: Event) => {
       if (hasStandardOrientation.current) return;
       const oe = e as DeviceOrientationEvent;
-      const { gamma: g, beta: b } = oe;
+      const { gamma: g, beta: b, alpha: a } = oe;
       if (typeof g !== 'number' || typeof b !== 'number' || Number.isNaN(g) || Number.isNaN(b)) {
+        return;
+      }
+      if (!hasAnyOrientation.current && g === 0 && b === 0 && (a === null || a === 0)) {
         return;
       }
       hasAnyOrientation.current = true;
@@ -219,40 +253,48 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
     attachSensorListeners();
 
     // iOS Safari 13+ requires requestPermission() inside a 'click' activation gesture.
-    // Note: Do NOT listen on 'touchend' here, as touchend fires just before click, marks status 'pending',
-    // causes click to be skipped, and WebKit rejects requestPermission from non-click touch events.
+    // Force click synthesis on non-interactive SVG/div elements in iOS WebKit via cursor: pointer until resolved.
+    const doe =
+      typeof DeviceOrientationEvent !== 'undefined'
+        ? (DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> })
+        : undefined;
+    const dme =
+      typeof DeviceMotionEvent !== 'undefined'
+        ? (DeviceMotionEvent as unknown as { requestPermission?: () => Promise<string> })
+        : undefined;
+
+    const reqFn =
+      doe && typeof doe.requestPermission === 'function'
+        ? doe.requestPermission.bind(DeviceOrientationEvent)
+        : dme && typeof dme.requestPermission === 'function'
+          ? dme.requestPermission.bind(DeviceMotionEvent)
+          : null;
+
     let permissionStatus: 'idle' | 'pending' | 'granted' | 'denied' = 'idle';
+    const prevBodyCursor = document.body?.style.cursor ?? '';
+
+    const restoreCursor = () => {
+      if (document.body) {
+        document.body.style.cursor = prevBodyCursor;
+      }
+    };
+
     const requestPermissionOnClick = () => {
-      if (permissionStatus === 'pending' || permissionStatus === 'granted') return;
-      const doe =
-        typeof DeviceOrientationEvent !== 'undefined'
-          ? (DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> })
-          : undefined;
-      const dme =
-        typeof DeviceMotionEvent !== 'undefined'
-          ? (DeviceMotionEvent as unknown as { requestPermission?: () => Promise<string> })
-          : undefined;
-
-      const reqFn =
-        doe && typeof doe.requestPermission === 'function'
-          ? doe.requestPermission.bind(DeviceOrientationEvent)
-          : dme && typeof dme.requestPermission === 'function'
-            ? dme.requestPermission.bind(DeviceMotionEvent)
-            : null;
-
-      if (!reqFn) return;
+      if (!reqFn || permissionStatus === 'pending' || permissionStatus === 'granted') return;
 
       permissionStatus = 'pending';
       reqFn()
         .then((state) => {
           if (state === 'granted') {
             permissionStatus = 'granted';
+            restoreCursor();
             detachSensorListeners();
             attachSensorListeners();
             calibrateOrigin();
-            window.removeEventListener('click', requestPermissionOnClick, true);
+            document.removeEventListener('click', requestPermissionOnClick, true);
           } else {
             permissionStatus = 'denied';
+            restoreCursor();
           }
         })
         .catch(() => {
@@ -261,11 +303,19 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
         });
     };
 
-    window.addEventListener('click', requestPermissionOnClick, { capture: true, passive: true });
+    if (reqFn) {
+      if (document.body) {
+        document.body.style.cursor = 'pointer';
+      }
+      document.addEventListener('click', requestPermissionOnClick, { capture: true, passive: true });
+    }
 
     return () => {
       detachSensorListeners();
-      window.removeEventListener('click', requestPermissionOnClick, true);
+      if (reqFn) {
+        restoreCursor();
+        document.removeEventListener('click', requestPermissionOnClick, true);
+      }
     };
   }, [enableGyroscope, maxDeflection, tiltSensitivity, calibrateOrigin]);
 
@@ -273,6 +323,7 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
     renderPos,
     targetPos,
     handleMouseMove,
+    handlePointerMove,
     handleMouseLeave,
     resetTarget,
     calibrateOrigin,
