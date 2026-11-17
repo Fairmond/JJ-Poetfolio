@@ -92,6 +92,7 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
   // Track sensor activity so mouse fallback never overrides active gyroscope or touch taps
   const lastGyroEventTime = useRef<number>(0);
   const hasStandardOrientation = useRef<boolean>(false);
+  const hasAnyOrientation = useRef<boolean>(false);
 
   // Mouse move handler (PC / Desktop preview) - reaches full radius within center 60% area, angle-only beyond
   const handleMouseMove = useCallback(
@@ -124,33 +125,26 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
     targetPos.current = { x: 0, y: 0 };
   }, []);
 
-  // Gyroscope / Device orientation (Mobile) - clamped within circular radial area
+  // Gyroscope / Device orientation + Motion fallback (Mobile) - clamped within circular radial area
   useEffect(() => {
     if (!enableGyroscope || typeof window === 'undefined') return;
 
     hasStandardOrientation.current = false;
+    hasAnyOrientation.current = false;
 
-    const processOrientation = (g: number | null, b: number | null, isAbsoluteFallback: boolean) => {
-      if (isAbsoluteFallback && hasStandardOrientation.current) return;
-      if (typeof g !== 'number' || typeof b !== 'number' || Number.isNaN(g) || Number.isNaN(b)) {
-        return;
-      }
-
-      if (!isAbsoluteFallback) {
-        hasStandardOrientation.current = true;
-      }
+    const updateTargetFromAngles = (angleX: number, angleY: number) => {
       lastGyroEventTime.current = Date.now();
 
       // If calibration is flagged, record the exact current posture as the center (0, 0)
       if (needsCalibration.current || originGamma.current === null || originBeta.current === null) {
-        originGamma.current = g;
-        originBeta.current = b;
+        originGamma.current = angleX;
+        originBeta.current = angleY;
         needsCalibration.current = false;
       }
 
       // Delta angles from calibrated baseline
-      const deltaX = g - originGamma.current;
-      const deltaY = b - originBeta.current;
+      const deltaX = angleX - originGamma.current;
+      const deltaY = angleY - originBeta.current;
 
       // Map to normalized range with sensitivity and strictly clamp within circle radius
       const rawX = deltaX / tiltSensitivity;
@@ -160,66 +154,118 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
     };
 
     const handleStandardOrientation = (e: DeviceOrientationEvent) => {
-      processOrientation(e.gamma, e.beta, false);
+      const { gamma: g, beta: b } = e;
+      if (typeof g !== 'number' || typeof b !== 'number' || Number.isNaN(g) || Number.isNaN(b)) {
+        return;
+      }
+      hasStandardOrientation.current = true;
+      hasAnyOrientation.current = true;
+      updateTargetFromAngles(g, b);
     };
 
     const handleAbsoluteOrientation = (e: Event) => {
+      if (hasStandardOrientation.current) return;
       const oe = e as DeviceOrientationEvent;
-      processOrientation(oe.gamma, oe.beta, true);
+      const { gamma: g, beta: b } = oe;
+      if (typeof g !== 'number' || typeof b !== 'number' || Number.isNaN(g) || Number.isNaN(b)) {
+        return;
+      }
+      hasAnyOrientation.current = true;
+      updateTargetFromAngles(g, b);
     };
 
-    const attachOrientationListeners = () => {
+    const isIOS =
+      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const handleDeviceMotion = (e: DeviceMotionEvent) => {
+      if (hasAnyOrientation.current) return;
+      const acc = e.accelerationIncludingGravity;
+      if (!acc) return;
+      const ax = acc.x;
+      const ay = acc.y;
+      const az = acc.z;
+      if (
+        typeof ax !== 'number' ||
+        typeof ay !== 'number' ||
+        typeof az !== 'number' ||
+        Number.isNaN(ax) ||
+        Number.isNaN(ay) ||
+        Number.isNaN(az)
+      ) {
+        return;
+      }
+      const gLen = Math.hypot(ax, ay, az);
+      if (gLen < 1) return;
+
+      const sign = isIOS ? -1 : 1;
+      const rollDeg = Math.atan2(ax * sign, Math.hypot(ay, az)) * (180 / Math.PI);
+      const pitchDeg = Math.atan2(-ay * sign, -az * sign) * (180 / Math.PI);
+      updateTargetFromAngles(rollDeg, pitchDeg);
+    };
+
+    const attachSensorListeners = () => {
       window.addEventListener('deviceorientation', handleStandardOrientation, true);
       window.addEventListener('deviceorientationabsolute', handleAbsoluteOrientation, true);
+      window.addEventListener('devicemotion', handleDeviceMotion, true);
     };
 
-    const detachOrientationListeners = () => {
+    const detachSensorListeners = () => {
       window.removeEventListener('deviceorientation', handleStandardOrientation, true);
       window.removeEventListener('deviceorientationabsolute', handleAbsoluteOrientation, true);
+      window.removeEventListener('devicemotion', handleDeviceMotion, true);
     };
 
     // Immediately register listeners (Android, WeChat, Webviews, DevTools Sensors)
-    attachOrientationListeners();
+    attachSensorListeners();
 
-    // iOS Safari 13+ requires requestPermission() inside a completed activation gesture (touchend / click, NOT touchstart)
+    // iOS Safari 13+ requires requestPermission() inside a 'click' activation gesture.
+    // Note: Do NOT listen on 'touchend' here, as touchend fires just before click, marks status 'pending',
+    // causes click to be skipped, and WebKit rejects requestPermission from non-click touch events.
     let permissionStatus: 'idle' | 'pending' | 'granted' | 'denied' = 'idle';
-    const requestPermissionOnGesture = () => {
+    const requestPermissionOnClick = () => {
       if (permissionStatus === 'pending' || permissionStatus === 'granted') return;
-      const doe = DeviceOrientationEvent as unknown as {
-        requestPermission?: () => Promise<string>;
-      };
-      if (typeof DeviceOrientationEvent === 'undefined' || typeof doe.requestPermission !== 'function') {
-        return;
-      }
+      const doe =
+        typeof DeviceOrientationEvent !== 'undefined'
+          ? (DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> })
+          : undefined;
+      const dme =
+        typeof DeviceMotionEvent !== 'undefined'
+          ? (DeviceMotionEvent as unknown as { requestPermission?: () => Promise<string> })
+          : undefined;
+
+      const reqFn =
+        doe && typeof doe.requestPermission === 'function'
+          ? doe.requestPermission.bind(DeviceOrientationEvent)
+          : dme && typeof dme.requestPermission === 'function'
+            ? dme.requestPermission.bind(DeviceMotionEvent)
+            : null;
+
+      if (!reqFn) return;
 
       permissionStatus = 'pending';
-      doe
-        .requestPermission()
+      reqFn()
         .then((state) => {
           if (state === 'granted') {
             permissionStatus = 'granted';
-            detachOrientationListeners();
-            attachOrientationListeners();
+            detachSensorListeners();
+            attachSensorListeners();
             calibrateOrigin();
-            window.removeEventListener('touchend', requestPermissionOnGesture, true);
-            window.removeEventListener('click', requestPermissionOnGesture, true);
+            window.removeEventListener('click', requestPermissionOnClick, true);
           } else {
             permissionStatus = 'denied';
           }
         })
         .catch(() => {
-          // Gesture was not trusted (e.g., cancelled or blocked); allow next tap to retry
+          // Gesture was not trusted or cancelled; allow next tap to retry
           permissionStatus = 'idle';
         });
     };
 
-    window.addEventListener('touchend', requestPermissionOnGesture, { capture: true, passive: true });
-    window.addEventListener('click', requestPermissionOnGesture, { capture: true, passive: true });
+    window.addEventListener('click', requestPermissionOnClick, { capture: true, passive: true });
 
     return () => {
-      detachOrientationListeners();
-      window.removeEventListener('touchend', requestPermissionOnGesture, true);
-      window.removeEventListener('click', requestPermissionOnGesture, true);
+      detachSensorListeners();
+      window.removeEventListener('click', requestPermissionOnClick, true);
     };
   }, [enableGyroscope, maxDeflection, tiltSensitivity, calibrateOrigin]);
 
