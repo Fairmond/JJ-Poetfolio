@@ -37,7 +37,7 @@ function clampToCircle(x: number, y: number, maxRadius: number): ParallaxCoords 
 
 /**
  * Build 3x3 W3C DeviceOrientation rotation matrix R = Rz(alpha) * Rx(beta) * Ry(gamma)
- * stored row-major as a 9-element tuple. Free of Euler gimbal-lock jumps around beta = ±90°.
+ * stored row-major as a 9-element tuple.
  */
 function buildW3CMatrix(alpha: number, beta: number, gamma: number): number[] {
   const a = alpha * DEG_TO_RAD;
@@ -63,9 +63,53 @@ function buildW3CMatrix(alpha: number, beta: number, gamma: number): number[] {
   ];
 }
 
+function buildMatrixFromQuaternion(qx: number, qy: number, qz: number, qw: number): number[] {
+  return [
+    1 - 2 * (qy * qy + qz * qz),
+    2 * (qx * qy - qw * qz),
+    2 * (qx * qz + qw * qy),
+    2 * (qx * qy + qw * qz),
+    1 - 2 * (qx * qx + qz * qz),
+    2 * (qy * qz - qw * qx),
+    2 * (qx * qz - qw * qy),
+    2 * (qy * qz + qw * qx),
+    1 - 2 * (qx * qx + qy * qy),
+  ];
+}
+
+interface GravityBasis {
+  rx: number;
+  ry: number;
+  rz: number;
+  px: number;
+  py: number;
+  pz: number;
+}
+
+function buildGravityBasis(ux: number, uy: number, uz: number): GravityBasis {
+  let rx = 1 - ux * ux;
+  let ry = -ux * uy;
+  let rz = -ux * uz;
+  let rLen = Math.hypot(rx, ry, rz);
+  if (rLen < 1e-3) {
+    rx = 0;
+    ry = 0;
+    rz = ux >= 0 ? -1 : 1;
+    rLen = 1;
+  }
+  rx /= rLen;
+  ry /= rLen;
+  rz /= rLen;
+
+  const px = uy * rz - uz * ry;
+  const py = uz * rx - ux * rz;
+  const pz = ux * ry - uy * rx;
+  return { rx, ry, rz, px, py, pz };
+}
+
 /**
  * High-performance parallax physics hook with inertia / lerp damping loop,
- * gimbal-lock-free 3D screen-normal gyroscope tracking, circular radial clamping,
+ * cross-browser gyroscope + smoothed gravity fallback tracking, circular radial clamping,
  * and post-load origin calibration.
  */
 export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult {
@@ -83,6 +127,7 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
   const currentPos = useRef<ParallaxCoords>({ x: 0, y: 0 });
 
   const originMatrixRef = useRef<number[] | null>(null);
+  const gravityBasisRef = useRef<GravityBasis | null>(null);
   const smoothedTiltRef = useRef<ParallaxCoords | null>(null);
   const needsCalibrationRef = useRef<boolean>(true);
   const iosPermissionGrantedRef = useRef<boolean>(false);
@@ -151,69 +196,54 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
     targetPos.current = { x: 0, y: 0 };
   }, []);
 
-  // Mobile gyroscope listener (single clean orientation stream, zero noisy fallbacks)
+  // Mobile gyroscope / orientation + smoothed gravity fallback
   useEffect(() => {
     if (!enableGyroscope || typeof window === 'undefined') return;
 
     originMatrixRef.current = null;
+    gravityBasisRef.current = null;
     smoothedTiltRef.current = null;
     needsCalibrationRef.current = true;
+
+    const mountTime = Date.now();
     let hasStandardOrientation = false;
+    let hasOrientationEvent = false;
+    let hasMotionEvent = false;
 
-    const processOrientation = (e: DeviceOrientationEvent, isAbsoluteFallback: boolean) => {
-      if (isAbsoluteFallback && hasStandardOrientation) return;
+    const applyContinuousTilt = (rawDxDeg: number, rawDyDeg: number) => {
+      const prev = smoothedTiltRef.current ?? { x: rawDxDeg, y: rawDyDeg };
+      const emaAlpha = 0.6;
+      const smoothX = prev.x + (rawDxDeg - prev.x) * emaAlpha;
+      const smoothY = prev.y + (rawDyDeg - prev.y) * emaAlpha;
+      smoothedTiltRef.current = { x: smoothX, y: smoothY };
 
-      const { alpha: rawA, beta: b, gamma: g } = e;
-      if (typeof b !== 'number' || typeof g !== 'number' || Number.isNaN(b) || Number.isNaN(g)) {
-        return;
-      }
+      targetPos.current = clampToCircle(
+        smoothX / tiltSensitivity,
+        smoothY / tiltSensitivity,
+        maxDeflection,
+      );
+    };
 
-      const a = typeof rawA === 'number' && !Number.isNaN(rawA) ? rawA : 0;
-
-      // Ignore uninitialized (0, 0, 0) stub readings before real sensor values arrive
-      if (!hasStandardOrientation && b === 0 && g === 0 && a === 0) {
-        return;
-      }
-
-      if (!isAbsoluteFallback) {
-        hasStandardOrientation = true;
-      }
-
+    const applyRotationMatrix = (m: number[]) => {
       if (needsCalibrationRef.current || originMatrixRef.current === null) {
-        originMatrixRef.current = buildW3CMatrix(a, b, g);
+        originMatrixRef.current = m;
+        gravityBasisRef.current = null;
         smoothedTiltRef.current = { x: 0, y: 0 };
         needsCalibrationRef.current = false;
         targetPos.current = { x: 0, y: 0 };
         return;
       }
 
-      // Express current screen normal (col 2 of R) and screen top axis (col 1 of R) in baseline frame M0
       const m0 = originMatrixRef.current;
-      const aRad = a * DEG_TO_RAD;
-      const bRad = b * DEG_TO_RAD;
-      const gRad = g * DEG_TO_RAD;
-      const ca = Math.cos(aRad);
-      const sa = Math.sin(aRad);
-      const cb = Math.cos(bRad);
-      const sb = Math.sin(bRad);
-      const cg = Math.cos(gRad);
-      const sg = Math.sin(gRad);
-
-      const zx = ca * sg + cg * sa * sb;
-      const zy = sa * sg - ca * cg * sb;
-      const zz = cb * cg;
-
-      const yx = -cb * sa;
-      const yy = ca * cb;
-      const yz = sb;
+      // Col 2 (screen normal) and Col 1 (screen top axis)
+      const zx = m[2], zy = m[5], zz = m[8];
+      const yx = m[1], yy = m[4], yz = m[7];
 
       const rx = m0[0] * zx + m0[3] * zy + m0[6] * zz;
       const ry = m0[1] * zx + m0[4] * zy + m0[7] * zz;
       const rz = m0[2] * zx + m0[5] * zy + m0[8] * zz;
       const rel01 = m0[0] * yx + m0[3] * yy + m0[6] * yz;
 
-      // Combine local-Y roll (rx) with upright-weighted sideways lean (m0[7] * rel01, where m0[7] = sin(beta0))
-      // so natural sideways tilting in upright hand postures keeps full 1:1 horizontal travel.
       const xMix = Math.max(-1, Math.min(1, rx + m0[7] * rel01));
 
       let rawDxDeg: number;
@@ -229,34 +259,205 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
         rawDyDeg = -Math.asin(Math.max(-1, Math.min(1, ry))) * RAD_TO_DEG;
       }
 
-      // Light EMA smoothing on continuous angle degrees to suppress high-frequency sensor jitter
-      const prev = smoothedTiltRef.current ?? { x: rawDxDeg, y: rawDyDeg };
-      const emaAlpha = 0.45;
-      const smoothX = prev.x + (rawDxDeg - prev.x) * emaAlpha;
-      const smoothY = prev.y + (rawDyDeg - prev.y) * emaAlpha;
-      smoothedTiltRef.current = { x: smoothX, y: smoothY };
+      applyContinuousTilt(rawDxDeg, rawDyDeg);
+    };
 
-      targetPos.current = clampToCircle(
-        smoothX / tiltSensitivity,
-        smoothY / tiltSensitivity,
-        maxDeflection,
-      );
+    const applyGravityVector = (rawUx: number, rawUy: number, rawUz: number) => {
+      const len = Math.hypot(rawUx, rawUy, rawUz);
+      if (len < 1e-4) return;
+      const ux = rawUx / len;
+      const uy = rawUy / len;
+      const uz = rawUz / len;
+
+      if (needsCalibrationRef.current || gravityBasisRef.current === null) {
+        gravityBasisRef.current = buildGravityBasis(ux, uy, uz);
+        smoothedTiltRef.current = { x: 0, y: 0 };
+        needsCalibrationRef.current = false;
+        targetPos.current = { x: 0, y: 0 };
+        return;
+      }
+
+      const b = gravityBasisRef.current;
+      const projX = Math.max(-1, Math.min(1, ux * b.rx + uy * b.ry + uz * b.rz));
+      const projY = Math.max(-1, Math.min(1, ux * b.px + uy * b.py + uz * b.pz));
+      applyContinuousTilt(Math.asin(projX) * RAD_TO_DEG, Math.asin(projY) * RAD_TO_DEG);
+    };
+
+    const processOrientation = (e: DeviceOrientationEvent, isAbsoluteFallback: boolean) => {
+      if (isAbsoluteFallback && hasStandardOrientation) return;
+
+      const { alpha: rawA, beta: b, gamma: g } = e;
+      if (typeof b !== 'number' || typeof g !== 'number' || Number.isNaN(b) || Number.isNaN(g)) {
+        return;
+      }
+
+      const a = typeof rawA === 'number' && !Number.isNaN(rawA) ? rawA : 0;
+      if (!hasOrientationEvent && b === 0 && g === 0 && a === 0) {
+        return;
+      }
+
+      if (!isAbsoluteFallback) {
+        hasStandardOrientation = true;
+      }
+      if (!hasOrientationEvent) {
+        hasOrientationEvent = true;
+        needsCalibrationRef.current = true;
+      }
+
+      applyRotationMatrix(buildW3CMatrix(a, b, g));
     };
 
     const handleStandard = (e: DeviceOrientationEvent) => processOrientation(e, false);
     const handleAbsolute = (e: Event) => processOrientation(e as DeviceOrientationEvent, true);
 
+    // Tier 2 fallback: low-pass filtered gravity vector from devicemotion (for Android WebViews / browsers
+    // where deviceorientation emits nulls or stays inactive while accelerationIncludingGravity streams)
+    const isIOS =
+      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    let lpAcc: { x: number; y: number; z: number } | null = null;
+    let motionWarmupCount = 0;
+
+    const handleDeviceMotion = (e: DeviceMotionEvent) => {
+      if (hasOrientationEvent) return;
+      // Wait briefly for deviceorientation to take priority before engaging devicemotion fallback
+      if (Date.now() - mountTime < 450) return;
+
+      const acc = e.accelerationIncludingGravity;
+      if (
+        !acc ||
+        typeof acc.x !== 'number' ||
+        typeof acc.y !== 'number' ||
+        typeof acc.z !== 'number' ||
+        Number.isNaN(acc.x) ||
+        Number.isNaN(acc.y) ||
+        Number.isNaN(acc.z)
+      ) {
+        return;
+      }
+
+      const gLen = Math.hypot(acc.x, acc.y, acc.z);
+      if (gLen < 1) return;
+
+      const sign = isIOS ? -1 : 1;
+      const nx = -acc.x * sign;
+      const ny = acc.y * sign;
+      const nz = acc.z * sign;
+
+      if (lpAcc === null) {
+        lpAcc = { x: nx, y: ny, z: nz };
+        motionWarmupCount = 1;
+        return;
+      }
+
+      // Gravity low-pass filter (lpAlpha = 0.12) strips out hand tremor & linear acceleration
+      const lpAlpha = 0.12;
+      lpAcc.x += (nx - lpAcc.x) * lpAlpha;
+      lpAcc.y += (ny - lpAcc.y) * lpAlpha;
+      lpAcc.z += (nz - lpAcc.z) * lpAlpha;
+      motionWarmupCount += 1;
+
+      if (motionWarmupCount < 3) return;
+      if (!hasMotionEvent) {
+        hasMotionEvent = true;
+        needsCalibrationRef.current = true;
+      }
+      applyGravityVector(lpAcc.x, lpAcc.y, lpAcc.z);
+    };
+
+    // Tier 3 fallback: W3C hardware-fused Generic Sensors (RelativeOrientationSensor / GravitySensor only, never raw Accelerometer)
+    interface GenericSensorLike {
+      start: () => void;
+      stop: () => void;
+      addEventListener: (type: string, cb: () => void) => void;
+      quaternion?: number[];
+      x?: number;
+      y?: number;
+      z?: number;
+    }
+    type SensorConstructor = new (opts?: { frequency?: number }) => GenericSensorLike;
+    let activeGenericSensor: GenericSensorLike | null = null;
+
+    const stopGenericSensor = () => {
+      if (activeGenericSensor) {
+        try {
+          activeGenericSensor.stop();
+        } catch {
+          // Ignore stop errors
+        }
+        activeGenericSensor = null;
+      }
+    };
+
+    const startGenericSensorFallback = () => {
+      if (hasOrientationEvent || hasMotionEvent || activeGenericSensor) return;
+      const win = window as unknown as Record<string, SensorConstructor | undefined>;
+
+      const tryOrientationSensor = (Ctor: SensorConstructor | undefined): boolean => {
+        if (!Ctor) return false;
+        try {
+          const sensor = new Ctor({ frequency: 60 });
+          sensor.addEventListener('reading', () => {
+            if (hasOrientationEvent || hasMotionEvent) {
+              stopGenericSensor();
+              return;
+            }
+            const q = sensor.quaternion;
+            if (!q || q.length < 4) return;
+            applyRotationMatrix(buildMatrixFromQuaternion(q[0], q[1], q[2], q[3]));
+          });
+          sensor.addEventListener('error', stopGenericSensor);
+          sensor.start();
+          activeGenericSensor = sensor;
+          return true;
+        } catch {
+          return false;
+        }
+      };
+
+      const tryGravitySensor = (Ctor: SensorConstructor | undefined): boolean => {
+        if (!Ctor) return false;
+        try {
+          const sensor = new Ctor({ frequency: 60 });
+          sensor.addEventListener('reading', () => {
+            if (hasOrientationEvent || hasMotionEvent) {
+              stopGenericSensor();
+              return;
+            }
+            const { x: gx, y: gy, z: gz } = sensor;
+            if (typeof gx !== 'number' || typeof gy !== 'number' || typeof gz !== 'number') return;
+            applyGravityVector(-gx, gy, gz);
+          });
+          sensor.addEventListener('error', stopGenericSensor);
+          sensor.start();
+          activeGenericSensor = sensor;
+          return true;
+        } catch {
+          return false;
+        }
+      };
+
+      if (tryOrientationSensor(win.RelativeOrientationSensor)) return;
+      if (tryOrientationSensor(win.AbsoluteOrientationSensor)) return;
+      tryGravitySensor(win.GravitySensor);
+    };
+
     const attach = () => {
-      window.addEventListener('deviceorientation', handleStandard, true);
-      window.addEventListener('deviceorientationabsolute', handleAbsolute, true);
+      window.addEventListener('deviceorientation', handleStandard, false);
+      window.addEventListener('deviceorientationabsolute', handleAbsolute, false);
+      window.addEventListener('devicemotion', handleDeviceMotion, false);
     };
 
     const detach = () => {
-      window.removeEventListener('deviceorientation', handleStandard, true);
-      window.removeEventListener('deviceorientationabsolute', handleAbsolute, true);
+      window.removeEventListener('deviceorientation', handleStandard, false);
+      window.removeEventListener('deviceorientationabsolute', handleAbsolute, false);
+      window.removeEventListener('devicemotion', handleDeviceMotion, false);
+      stopGenericSensor();
     };
 
     attach();
+
+    const genericTimer = window.setTimeout(startGenericSensorFallback, 900);
 
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
@@ -271,10 +472,16 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
       typeof DeviceOrientationEvent !== 'undefined'
         ? (DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> })
         : undefined;
+    const dme =
+      typeof DeviceMotionEvent !== 'undefined'
+        ? (DeviceMotionEvent as unknown as { requestPermission?: () => Promise<string> })
+        : undefined;
     const reqFn =
       doe && typeof doe.requestPermission === 'function'
         ? doe.requestPermission.bind(DeviceOrientationEvent)
-        : null;
+        : dme && typeof dme.requestPermission === 'function'
+          ? dme.requestPermission.bind(DeviceMotionEvent)
+          : null;
 
     let permissionStatus: 'idle' | 'pending' | 'granted' | 'denied' = iosPermissionGrantedRef.current
       ? 'granted'
@@ -319,6 +526,7 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
     }
 
     return () => {
+      window.clearTimeout(genericTimer);
       window.removeEventListener('pageshow', calibrateOrigin);
       document.removeEventListener('visibilitychange', handleVisibility);
       detach();

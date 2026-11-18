@@ -22,12 +22,12 @@ export const MobileStage: React.FC<MobileStageProps> = ({
   const [stageWidth, setStageWidth] = useState(MOBILE_STAGE.DEFAULT_WIDTH);
   const [stageHeight, setStageHeight] = useState(MOBILE_STAGE.DEFAULT_HEIGHT);
 
-  // Parallax physics driven by device gyroscope (reaches full 0.85 radius at 12° tilt)
+  // Parallax physics driven by device gyroscope (reaches full 0.85 radius at 8° tilt)
   const { renderPos } = useParallax({
-    damping: 0.13,
+    damping: 0.18,
     enableGyroscope: true,
     maxDeflection: 0.85,
-    tiltSensitivity: 12 / 0.85,
+    tiltSensitivity: 8 / 0.85,
     isLoaded: !isLoading,
   });
 

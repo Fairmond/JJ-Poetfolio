@@ -131,7 +131,7 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
         </defs>
 
         {/* Rotated Torn Paper Strip Layer - shifted upward by 1/4 body (recalled half) */}
-        <g transform={`translate(${renderPos.x * 6} ${-49 + renderPos.y * 6})`}>
+        <g transform={`translate(${renderPos.x * 11} ${-49 + renderPos.y * 11})`}>
           <g transform="rotate(-40.0 363.905 379.456)">
             <image
               href={HERO_ASSETS.bgTorn}
@@ -204,7 +204,7 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
         {/* 3D HERO FRAME PACKAGE - Outer frame scale remains 0.966 */}
         <g transform="translate(0 -16) translate(196.5 375) scale(0.966) translate(-196.5 -375)">
           <g
-            transform={`translate(${-1051 + renderPos.x * 25.85} ${-21.038 + renderPos.y * 25.85})`}
+            transform={`translate(${-1051 + renderPos.x * 34} ${-21.038 + renderPos.y * 34})`}
             className="group select-none pointer-events-auto"
           >
             {/* Layer 1: Bottom Portrait Studio Background - Scaled +20% */}
@@ -217,7 +217,7 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
                 xlinkHref={HERO_ASSETS.portraitBottom}
                 width={306}
                 height={408}
-                transform={`translate(${-12.563 - renderPos.x * 17.8} ${-57.956 - renderPos.y * 17.8}) translate(144.4 150) scale(1.2) translate(-144.4 -150)`}
+                transform={`translate(${-12.563 - renderPos.x * 26} ${-57.956 - renderPos.y * 26}) translate(144.4 150) scale(1.2) translate(-144.4 -150)`}
               />
             </g>
 
@@ -255,14 +255,14 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
                 xlinkHref={HERO_ASSETS.portraitTop}
                 width={287.05}
                 height={393.62}
-                transform={`translate(${7.925 - renderPos.x * 21} ${12.392 - renderPos.y * 21})`}
+                transform={`translate(${7.925 - renderPos.x * 31} ${12.392 - renderPos.y * 31})`}
               />
             </g>
           </g>
 
           {/* Circular Holographic Badge / Stamp Avatar - Base badge/avatar NOT scaled */}
           <g
-            transform={`translate(${-1418.955 - renderPos.x * 26} ${-228.976 - renderPos.y * 26})`}
+            transform={`translate(${-1418.955 - renderPos.x * 38} ${-228.976 - renderPos.y * 38})`}
             filter="url(#mobileBadgeShadow)"
           >
             <circle
@@ -294,7 +294,7 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
                 style={{
                   mixBlendMode: 'color-dodge',
                   opacity: 0.275,
-                  transform: `translate(${renderPos.x * 48}px, ${renderPos.y * 48}px) rotate(${renderPos.x * 45}deg) scale(2)`,
+                  transform: `translate(${renderPos.x * 64}px, ${renderPos.y * 64}px) rotate(${renderPos.x * 45}deg) scale(2)`,
                   transformOrigin: '1732.375px 735.429px',
                 }}
               />
@@ -309,7 +309,7 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
                 style={{
                   mixBlendMode: 'overlay',
                   opacity: 0.25,
-                  transform: `translate(${-renderPos.x * 56}px, ${-renderPos.y * 56}px) rotate(${45 + renderPos.y * 35}deg)`,
+                  transform: `translate(${-renderPos.x * 72}px, ${-renderPos.y * 72}px) rotate(${45 + renderPos.y * 35}deg)`,
                   transformOrigin: '1732.375px 735.429px',
                 }}
               />
