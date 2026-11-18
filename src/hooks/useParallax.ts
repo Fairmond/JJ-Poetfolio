@@ -26,11 +26,13 @@ export interface UseParallaxResult {
 const DEG_TO_RAD = Math.PI / 180;
 const RAD_TO_DEG = 180 / Math.PI;
 
-function clampToSquare(x: number, y: number, limit: number): ParallaxCoords {
-  return {
-    x: Math.max(-limit, Math.min(limit, x)),
-    y: Math.max(-limit, Math.min(limit, y)),
-  };
+function clampToCircle(x: number, y: number, maxRadius: number): ParallaxCoords {
+  const dist = Math.hypot(x, y);
+  if (dist <= maxRadius || dist === 0) {
+    return { x, y };
+  }
+  const scale = maxRadius / dist;
+  return { x: x * scale, y: y * scale };
 }
 
 /**
@@ -63,7 +65,7 @@ function buildW3CMatrix(alpha: number, beta: number, gamma: number): number[] {
 
 /**
  * High-performance parallax physics hook with inertia / lerp damping loop,
- * gimbal-lock-free 3D screen-normal gyroscope tracking, square clamping,
+ * gimbal-lock-free 3D screen-normal gyroscope tracking, circular radial clamping,
  * and post-load origin calibration.
  */
 export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult {
@@ -126,7 +128,7 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
     return () => cancelAnimationFrame(animId);
   }, [damping]);
 
-  // Desktop mouse parallax (reaches full range within center mouseActiveRatio rectangle)
+  // Desktop mouse parallax (reaches full radius within center mouseActiveRatio circle)
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLElement>) => {
       if (enableGyroscope) return;
@@ -135,7 +137,7 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
       const safeRatio = mouseActiveRatio > 0 ? mouseActiveRatio : 1;
       const rawX = (((e.clientX - rect.left) / rect.width - 0.5) * 2) / safeRatio;
       const rawY = (((e.clientY - rect.top) / rect.height - 0.5) * 2) / safeRatio;
-      targetPos.current = clampToSquare(rawX, rawY, maxDeflection);
+      targetPos.current = clampToCircle(rawX, rawY, maxDeflection);
     },
     [enableGyroscope, maxDeflection, mouseActiveRatio],
   );
@@ -234,7 +236,7 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
       const smoothY = prev.y + (rawDyDeg - prev.y) * emaAlpha;
       smoothedTiltRef.current = { x: smoothX, y: smoothY };
 
-      targetPos.current = clampToSquare(
+      targetPos.current = clampToCircle(
         smoothX / tiltSensitivity,
         smoothY / tiltSensitivity,
         maxDeflection,
