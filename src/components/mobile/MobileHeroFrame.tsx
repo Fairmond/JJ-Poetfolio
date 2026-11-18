@@ -79,12 +79,12 @@ export const MobileHeroFrame: React.FC<MobileHeroFrameProps> = ({ renderPos }) =
             />
           </clipPath>
 
-          {/* Upper Portrait Cutout Clipping Path */}
+          {/* Upper Portrait Cutout Clipping Path (extended upward at top so hair is never clipped at max downward tilt) */}
           <clipPath id="mobile-clip-top-photo">
             <path
               fill="#fff"
               stroke="#707070"
-              d="M47.065 0h220.43L248.43 350.902 0 316.944Z"
+              d="M58.945 -80h212.896L248.43 350.902 0 316.944Z"
               opacity={0.54}
             />
           </clipPath>
