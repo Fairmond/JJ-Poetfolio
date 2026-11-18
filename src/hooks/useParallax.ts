@@ -185,8 +185,7 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
         return;
       }
 
-      // Express current screen normal (3rd column of R) in the calibrated baseline frame M0:
-      // relZ = M0^T * z_current
+      // Express current screen normal (col 2 of R) and screen top axis (col 1 of R) in baseline frame M0
       const m0 = originMatrixRef.current;
       const aRad = a * DEG_TO_RAD;
       const bRad = b * DEG_TO_RAD;
@@ -202,17 +201,29 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
       const zy = sa * sg - ca * cg * sb;
       const zz = cb * cg;
 
+      const yx = -cb * sa;
+      const yy = ca * cb;
+      const yz = sb;
+
       const rx = m0[0] * zx + m0[3] * zy + m0[6] * zz;
       const ry = m0[1] * zx + m0[4] * zy + m0[7] * zz;
       const rz = m0[2] * zx + m0[5] * zy + m0[8] * zz;
+      const rel01 = m0[0] * yx + m0[3] * yy + m0[6] * yz;
+
+      // Combine local-Y roll (rx) with upright-weighted sideways lean (m0[7] * rel01, where m0[7] = sin(beta0))
+      // so natural sideways tilting in upright hand postures keeps full 1:1 horizontal travel.
+      const xMix = Math.max(-1, Math.min(1, rx + m0[7] * rel01));
 
       let rawDxDeg: number;
       let rawDyDeg: number;
       if (rz < 0 && Math.abs(ry) > Math.abs(rx)) {
         rawDxDeg = Math.atan2(rx, -rz) * RAD_TO_DEG;
         rawDyDeg = Math.atan2(-ry, rz) * RAD_TO_DEG;
-      } else {
+      } else if (rz < 0 && Math.abs(rx) >= Math.abs(ry)) {
         rawDxDeg = Math.atan2(rx, rz) * RAD_TO_DEG;
+        rawDyDeg = -Math.asin(Math.max(-1, Math.min(1, ry))) * RAD_TO_DEG;
+      } else {
+        rawDxDeg = Math.asin(xMix) * RAD_TO_DEG;
         rawDyDeg = -Math.asin(Math.max(-1, Math.min(1, ry))) * RAD_TO_DEG;
       }
 
