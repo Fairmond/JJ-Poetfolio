@@ -35,10 +35,6 @@ function clampToCircle(x: number, y: number, maxRadius: number): ParallaxCoords 
   return { x: x * scale, y: y * scale };
 }
 
-/**
- * Build 3x3 W3C DeviceOrientation rotation matrix R = Rz(alpha) * Rx(beta) * Ry(gamma)
- * stored row-major as a 9-element tuple.
- */
 function buildW3CMatrix(alpha: number, beta: number, gamma: number): number[] {
   const a = alpha * DEG_TO_RAD;
   const b = beta * DEG_TO_RAD;
@@ -109,8 +105,8 @@ function buildGravityBasis(ux: number, uy: number, uz: number): GravityBasis {
 
 /**
  * High-performance parallax physics hook with inertia / lerp damping loop,
- * cross-browser gyroscope + smoothed gravity fallback tracking, circular radial clamping,
- * and post-load origin calibration.
+ * cross-browser gyroscope + smoothed gravity fallback + async GenericSensor chain,
+ * circular radial clamping, and post-load origin calibration.
  */
 export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult {
   const {
@@ -131,16 +127,20 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
   const smoothedTiltRef = useRef<ParallaxCoords | null>(null);
   const needsCalibrationRef = useRef<boolean>(true);
   const iosPermissionGrantedRef = useRef<boolean>(false);
+  const onPostLoadReadyRef = useRef<(() => void) | null>(null);
+  const isLoadedRef = useRef<boolean>(isLoaded);
+  isLoadedRef.current = isLoaded;
 
   const calibrateOrigin = useCallback(() => {
     needsCalibrationRef.current = true;
     smoothedTiltRef.current = null;
   }, []);
 
-  // Re-zero gyroscope baseline once initial asset preloading finishes
+  // Re-zero gyroscope baseline and verify active sensor stream once asset preloading finishes
   useEffect(() => {
     if (isLoaded) {
       calibrateOrigin();
+      onPostLoadReadyRef.current?.();
     }
   }, [isLoaded, calibrateOrigin]);
 
@@ -196,7 +196,7 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
     targetPos.current = { x: 0, y: 0 };
   }, []);
 
-  // Mobile gyroscope / orientation + smoothed gravity fallback
+  // Mobile gyroscope / orientation + smoothed gravity + async GenericSensor fallback
   useEffect(() => {
     if (!enableGyroscope || typeof window === 'undefined') return;
 
@@ -205,10 +205,15 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
     smoothedTiltRef.current = null;
     needsCalibrationRef.current = true;
 
-    const mountTime = Date.now();
     let hasStandardOrientation = false;
-    let hasOrientationEvent = false;
-    let hasMotionEvent = false;
+    let firstOrientation: { a: number; b: number; g: number } | null = null;
+    let hasMovingOrientation = false;
+    let hasMovingMotion = false;
+    let hasMovingGeneric = false;
+    let activeSource: 'none' | 'orientation' | 'motion' | 'generic' = 'none';
+
+    const hasAnyMovingSensor = () =>
+      hasMovingOrientation || hasMovingMotion || hasMovingGeneric;
 
     const applyContinuousTilt = (rawDxDeg: number, rawDyDeg: number) => {
       const prev = smoothedTiltRef.current ?? { x: rawDxDeg, y: rawDyDeg };
@@ -224,7 +229,12 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
       );
     };
 
-    const applyRotationMatrix = (m: number[]) => {
+    const applyRotationMatrix = (source: 'orientation' | 'generic', m: number[]) => {
+      if (activeSource !== source) {
+        activeSource = source;
+        needsCalibrationRef.current = true;
+      }
+
       if (needsCalibrationRef.current || originMatrixRef.current === null) {
         originMatrixRef.current = m;
         gravityBasisRef.current = null;
@@ -235,7 +245,6 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
       }
 
       const m0 = originMatrixRef.current;
-      // Col 2 (screen normal) and Col 1 (screen top axis)
       const zx = m[2], zy = m[5], zz = m[8];
       const yx = m[1], yy = m[4], yz = m[7];
 
@@ -262,12 +271,22 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
       applyContinuousTilt(rawDxDeg, rawDyDeg);
     };
 
-    const applyGravityVector = (rawUx: number, rawUy: number, rawUz: number) => {
+    const applyGravityVector = (
+      source: 'motion' | 'generic',
+      rawUx: number,
+      rawUy: number,
+      rawUz: number,
+    ) => {
       const len = Math.hypot(rawUx, rawUy, rawUz);
       if (len < 1e-4) return;
       const ux = rawUx / len;
       const uy = rawUy / len;
       const uz = rawUz / len;
+
+      if (activeSource !== source) {
+        activeSource = source;
+        needsCalibrationRef.current = true;
+      }
 
       if (needsCalibrationRef.current || gravityBasisRef.current === null) {
         gravityBasisRef.current = buildGravityBasis(ux, uy, uz);
@@ -292,36 +311,48 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
       }
 
       const a = typeof rawA === 'number' && !Number.isNaN(rawA) ? rawA : 0;
-      if (!hasOrientationEvent && b === 0 && g === 0 && a === 0) {
-        return;
+
+      if (!hasMovingOrientation) {
+        if (b === 0 && g === 0 && a === 0) return;
+        if (!firstOrientation) {
+          firstOrientation = { a, b, g };
+          if (!isAbsoluteFallback) hasStandardOrientation = true;
+          applyRotationMatrix('orientation', buildW3CMatrix(a, b, g));
+          return;
+        }
+        const delta =
+          Math.abs(a - firstOrientation.a) +
+          Math.abs(b - firstOrientation.b) +
+          Math.abs(g - firstOrientation.g);
+        if (delta > 0.05) {
+          hasMovingOrientation = true;
+        } else {
+          return;
+        }
       }
 
       if (!isAbsoluteFallback) {
         hasStandardOrientation = true;
       }
-      if (!hasOrientationEvent) {
-        hasOrientationEvent = true;
-        needsCalibrationRef.current = true;
-      }
 
-      applyRotationMatrix(buildW3CMatrix(a, b, g));
+      applyRotationMatrix('orientation', buildW3CMatrix(a, b, g));
     };
 
     const handleStandard = (e: DeviceOrientationEvent) => processOrientation(e, false);
     const handleAbsolute = (e: Event) => processOrientation(e as DeviceOrientationEvent, true);
 
-    // Tier 2 fallback: low-pass filtered gravity vector from devicemotion (for Android WebViews / browsers
-    // where deviceorientation emits nulls or stays inactive while accelerationIncludingGravity streams)
+    // Tier 2 fallback: low-pass filtered gravity vector from devicemotion
     const isIOS =
       /iPad|iPhone|iPod/.test(navigator.userAgent) ||
       (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     let lpAcc: { x: number; y: number; z: number } | null = null;
+    let firstMotionNorm: { x: number; y: number; z: number } | null = null;
     let motionWarmupCount = 0;
+    let motionWaitStart = Date.now();
 
     const handleDeviceMotion = (e: DeviceMotionEvent) => {
-      if (hasOrientationEvent) return;
-      // Wait briefly for deviceorientation to take priority before engaging devicemotion fallback
-      if (Date.now() - mountTime < 450) return;
+      if (hasMovingOrientation) return;
+      if (Date.now() - motionWaitStart < 350) return;
 
       const acc = e.accelerationIncludingGravity;
       if (
@@ -350,7 +381,6 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
         return;
       }
 
-      // Gravity low-pass filter (lpAlpha = 0.12) strips out hand tremor & linear acceleration
       const lpAlpha = 0.12;
       lpAcc.x += (nx - lpAcc.x) * lpAlpha;
       lpAcc.y += (ny - lpAcc.y) * lpAlpha;
@@ -358,14 +388,30 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
       motionWarmupCount += 1;
 
       if (motionWarmupCount < 3) return;
-      if (!hasMotionEvent) {
-        hasMotionEvent = true;
-        needsCalibrationRef.current = true;
+
+      const lLen = Math.hypot(lpAcc.x, lpAcc.y, lpAcc.z) || 1;
+      const ux = lpAcc.x / lLen;
+      const uy = lpAcc.y / lLen;
+      const uz = lpAcc.z / lLen;
+
+      if (!hasMovingMotion) {
+        if (!firstMotionNorm) {
+          firstMotionNorm = { x: ux, y: uy, z: uz };
+        } else if (
+          Math.hypot(
+            ux - firstMotionNorm.x,
+            uy - firstMotionNorm.y,
+            uz - firstMotionNorm.z,
+          ) > 0.002
+        ) {
+          hasMovingMotion = true;
+        }
       }
-      applyGravityVector(lpAcc.x, lpAcc.y, lpAcc.z);
+
+      applyGravityVector('motion', lpAcc.x, lpAcc.y, lpAcc.z);
     };
 
-    // Tier 3 fallback: W3C hardware-fused Generic Sensors (RelativeOrientationSensor / GravitySensor only, never raw Accelerometer)
+    // Tier 3 fallback: asynchronous W3C hardware-fused Generic Sensor chain (never raw Accelerometer)
     interface GenericSensorLike {
       start: () => void;
       stop: () => void;
@@ -377,8 +423,14 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
     }
     type SensorConstructor = new (opts?: { frequency?: number }) => GenericSensorLike;
     let activeGenericSensor: GenericSensorLike | null = null;
+    let genericProbeTimer: number | null = null;
+    let genericAttemptIndex = 0;
 
     const stopGenericSensor = () => {
+      if (genericProbeTimer !== null) {
+        window.clearTimeout(genericProbeTimer);
+        genericProbeTimer = null;
+      }
       if (activeGenericSensor) {
         try {
           activeGenericSensor.stop();
@@ -389,57 +441,66 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
       }
     };
 
-    const startGenericSensorFallback = () => {
-      if (hasOrientationEvent || hasMotionEvent || activeGenericSensor) return;
+    const tryNextGenericSensor = () => {
+      if (hasMovingOrientation || hasMovingMotion || activeGenericSensor) return;
       const win = window as unknown as Record<string, SensorConstructor | undefined>;
 
-      const tryOrientationSensor = (Ctor: SensorConstructor | undefined): boolean => {
-        if (!Ctor) return false;
+      const candidates: Array<{
+        ctor: SensorConstructor | undefined;
+        kind: 'orientation' | 'gravity';
+      }> = [
+        { ctor: win.RelativeOrientationSensor, kind: 'orientation' },
+        { ctor: win.AbsoluteOrientationSensor, kind: 'orientation' },
+        { ctor: win.GravitySensor, kind: 'gravity' },
+      ];
+
+      while (genericAttemptIndex < candidates.length) {
+        const candidate = candidates[genericAttemptIndex++];
+        if (!candidate.ctor) continue;
+
         try {
-          const sensor = new Ctor({ frequency: 60 });
+          const sensor = new candidate.ctor({ frequency: 60 });
+          let gotReading = false;
+
+          const advanceOnFailure = () => {
+            if (gotReading) return;
+            stopGenericSensor();
+            tryNextGenericSensor();
+          };
+
           sensor.addEventListener('reading', () => {
-            if (hasOrientationEvent || hasMotionEvent) {
+            if (hasMovingOrientation || hasMovingMotion) {
               stopGenericSensor();
               return;
             }
-            const q = sensor.quaternion;
-            if (!q || q.length < 4) return;
-            applyRotationMatrix(buildMatrixFromQuaternion(q[0], q[1], q[2], q[3]));
-          });
-          sensor.addEventListener('error', stopGenericSensor);
-          sensor.start();
-          activeGenericSensor = sensor;
-          return true;
-        } catch {
-          return false;
-        }
-      };
-
-      const tryGravitySensor = (Ctor: SensorConstructor | undefined): boolean => {
-        if (!Ctor) return false;
-        try {
-          const sensor = new Ctor({ frequency: 60 });
-          sensor.addEventListener('reading', () => {
-            if (hasOrientationEvent || hasMotionEvent) {
-              stopGenericSensor();
-              return;
+            gotReading = true;
+            hasMovingGeneric = true;
+            if (genericProbeTimer !== null) {
+              window.clearTimeout(genericProbeTimer);
+              genericProbeTimer = null;
             }
-            const { x: gx, y: gy, z: gz } = sensor;
-            if (typeof gx !== 'number' || typeof gy !== 'number' || typeof gz !== 'number') return;
-            applyGravityVector(-gx, gy, gz);
+            if (candidate.kind === 'orientation') {
+              const q = sensor.quaternion;
+              if (!q || q.length < 4) return;
+              applyRotationMatrix('generic', buildMatrixFromQuaternion(q[0], q[1], q[2], q[3]));
+            } else {
+              const { x: gx, y: gy, z: gz } = sensor;
+              if (typeof gx !== 'number' || typeof gy !== 'number' || typeof gz !== 'number') return;
+              applyGravityVector('generic', -gx, gy, gz);
+            }
           });
-          sensor.addEventListener('error', stopGenericSensor);
+
+          sensor.addEventListener('error', advanceOnFailure);
           sensor.start();
           activeGenericSensor = sensor;
-          return true;
-        } catch {
-          return false;
-        }
-      };
 
-      if (tryOrientationSensor(win.RelativeOrientationSensor)) return;
-      if (tryOrientationSensor(win.AbsoluteOrientationSensor)) return;
-      tryGravitySensor(win.GravitySensor);
+          // If this sensor produces no reading within 500ms, advance cleanly to the next candidate
+          genericProbeTimer = window.setTimeout(advanceOnFailure, 500);
+          return;
+        } catch {
+          // Synchronous construct/start failure: continue to next candidate
+        }
+      }
     };
 
     const attach = () => {
@@ -457,13 +518,43 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
 
     attach();
 
-    const genericTimer = window.setTimeout(startGenericSensorFallback, 900);
+    let fallbackTimer: number | null = window.setTimeout(() => {
+      fallbackTimer = null;
+      if (!hasMovingOrientation && !hasMovingMotion) {
+        tryNextGenericSensor();
+      }
+    }, 800);
+
+    // Post-load & gesture wake-up ONLY when no changing sensor stream is active yet (fixes slow-load browser stalls)
+    const wakeSensorsIfIdle = () => {
+      if (hasAnyMovingSensor()) return;
+      motionWaitStart = Date.now() - 350;
+      detach();
+      attach();
+      genericAttemptIndex = 0;
+      if (fallbackTimer !== null) {
+        window.clearTimeout(fallbackTimer);
+      }
+      fallbackTimer = window.setTimeout(() => {
+        fallbackTimer = null;
+        if (!hasMovingOrientation && !hasMovingMotion) {
+          tryNextGenericSensor();
+        }
+      }, 450);
+    };
+
+    onPostLoadReadyRef.current = wakeSensorsIfIdle;
+    if (isLoadedRef.current) {
+      wakeSensorsIfIdle();
+    }
 
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         calibrateOrigin();
+        wakeSensorsIfIdle();
       }
     };
+    window.addEventListener('load', wakeSensorsIfIdle);
     window.addEventListener('pageshow', calibrateOrigin);
     document.addEventListener('visibilitychange', handleVisibility);
 
@@ -518,21 +609,37 @@ export function useParallax(options: UseParallaxOptions = {}): UseParallaxResult
         });
     };
 
+    const wakeOnFirstTouch = () => {
+      if (hasAnyMovingSensor()) {
+        document.removeEventListener('pointerdown', wakeOnFirstTouch, true);
+        return;
+      }
+      wakeSensorsIfIdle();
+    };
+
     if (reqFn && !iosPermissionGrantedRef.current) {
       if (document.body) {
         document.body.style.cursor = 'pointer';
       }
       document.addEventListener('click', requestPermissionOnClick, { capture: true, passive: true });
+    } else if (!reqFn) {
+      document.addEventListener('pointerdown', wakeOnFirstTouch, { capture: true, passive: true });
     }
 
     return () => {
-      window.clearTimeout(genericTimer);
+      onPostLoadReadyRef.current = null;
+      if (fallbackTimer !== null) {
+        window.clearTimeout(fallbackTimer);
+      }
+      window.removeEventListener('load', wakeSensorsIfIdle);
       window.removeEventListener('pageshow', calibrateOrigin);
       document.removeEventListener('visibilitychange', handleVisibility);
       detach();
       if (reqFn) {
         restoreCursor();
         document.removeEventListener('click', requestPermissionOnClick, true);
+      } else {
+        document.removeEventListener('pointerdown', wakeOnFirstTouch, true);
       }
     };
   }, [enableGyroscope, maxDeflection, tiltSensitivity, calibrateOrigin]);
