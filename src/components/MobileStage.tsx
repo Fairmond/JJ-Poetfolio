@@ -5,7 +5,6 @@ import { useParallax } from '../hooks/useParallax';
 import { MobileHeader } from './mobile/MobileHeader';
 import { MobileHeroFrame } from './mobile/MobileHeroFrame';
 import { MobileDrawerSheet } from './mobile/MobileDrawerSheet';
-import { SensorDebugOverlay } from './mobile/SensorDebugOverlay';
 
 interface MobileStageProps {
   onSelectProject: (project: ProjectItem) => void;
@@ -108,9 +107,6 @@ export const MobileStage: React.FC<MobileStageProps> = ({
           onOpenContact={onOpenContact}
         />
       </div>
-
-      {/* Real-time Mobile Sensor Capture Overlay (removable after cross-browser debugging) */}
-      <SensorDebugOverlay renderPos={renderPos} isLoading={isLoading} />
     </div>
   );
 };
